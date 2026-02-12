@@ -573,8 +573,12 @@
                 this.x -= speed;
                 this.pulseTime += deltaTime;
 
-                // Bob animation removed for performance
-                this.bobOffset = 0;
+                // Gentle float for coins and powerups (not drainers)
+                if (this.type !== 'drainer') {
+                    this.bobOffset = Math.sin(this.pulseTime / 400) * 4;
+                } else {
+                    this.bobOffset = 0;
+                }
 
                 // Magnet pull - only affects coins, not drainers
                 // Magnet pull — stronger, wider range
@@ -625,24 +629,24 @@
                         }
                         break;
                     case 'extraLife':
-                        ctx.font = '28px Arial';
+                        ctx.font = '36px Arial';
                         ctx.textAlign = 'center';
-                        ctx.fillText('❤️', drawX, drawY + this.height/2 + 10);
+                        ctx.fillText('❤️', drawX, drawY + this.height/2 + 12);
                         break;
                     case 'shield':
-                        ctx.font = '28px Arial';
+                        ctx.font = '36px Arial';
                         ctx.textAlign = 'center';
-                        ctx.fillText('🛡️', drawX, drawY + this.height/2 + 10);
+                        ctx.fillText('🛡️', drawX, drawY + this.height/2 + 12);
                         break;
                     case 'magnet':
-                        ctx.font = '28px Arial';
+                        ctx.font = '36px Arial';
                         ctx.textAlign = 'center';
-                        ctx.fillText('🧲', drawX, drawY + this.height/2 + 10);
+                        ctx.fillText('🧲', drawX, drawY + this.height/2 + 12);
                         break;
                     case 'coinRain':
-                        ctx.font = '28px Arial';
+                        ctx.font = '36px Arial';
                         ctx.textAlign = 'center';
-                        ctx.fillText('🌧️', drawX, drawY + this.height/2 + 10);
+                        ctx.fillText('🌧️', drawX, drawY + this.height/2 + 12);
                         break;
                 }
 
