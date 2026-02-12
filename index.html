@@ -611,6 +611,8 @@
             gameState.newHighScoreIndex = -1;
             gameState.compromiseMessage = '';
             gameState.compromiseMessageLife = 0;
+            gameState.closeCallMessage = '';
+            gameState.closeCallLife = 0;
         }
 
         function spawnObject() {
@@ -625,17 +627,19 @@
 
             let type = 'coin';
 
-            // Drainer logic - appears after 10+ COINS collected
-            // Drainers spawn on ground level so you have to JUMP OVER them
-            if (gameState.coinsCollected >= 10 && gameState.drainersEnabled) {
-                const drainerProb = Math.min(0.3, (gameState.coinsCollected - 10) / 200);
+            // Drainer logic - time-based gradual ramp
+            // Starts at 0% at 15s, reaches ~5% at 30s, ~12% at 60s, caps at 25% around 2min+
+            const gameTimeSec = gameState.gameTime / 1000;
+            if (gameTimeSec > 15 && gameState.drainersEnabled) {
+                const drainerProb = Math.min(0.25, ((gameTimeSec - 15) * (gameTimeSec - 15)) / 40000);
                 if (Math.random() < drainerProb) {
                     type = 'drainer';
                 }
             }
 
-            // Powerup logic (rare)
-            if (type === 'coin' && Math.random() < 0.05) {
+            // Powerup logic - scales up with difficulty to keep it fair
+            const powerupChance = Math.min(0.12, 0.04 + gameTimeSec / 500);
+            if (type === 'coin' && Math.random() < powerupChance) {
                 type = Math.random() < 0.5 ? 'shield' : 'magnet';
             }
 
@@ -721,10 +725,10 @@
         function updateGameSpeed(deltaTime) {
             gameState.gameTime += deltaTime;
 
-            // Increase difficulty every 10 seconds (faster increments)
-            if (Math.floor(gameState.gameTime / 10000) > Math.floor((gameState.gameTime - deltaTime) / 10000)) {
-                gameState.walkSpeedBonus = (gameState.walkSpeedBonus || 0) + 0.4;  // Faster speed increase
-                gameState.spawnInterval = Math.max(400, gameState.spawnInterval - 100);  // Faster spawns, lower min
+            // Increase difficulty every 15 seconds (smoother ramp)
+            if (Math.floor(gameState.gameTime / 15000) > Math.floor((gameState.gameTime - deltaTime) / 15000)) {
+                gameState.walkSpeedBonus = (gameState.walkSpeedBonus || 0) + 0.3;
+                gameState.spawnInterval = Math.max(450, gameState.spawnInterval - 50);
             }
             // Apply walk speed bonus when walking
             if (gameState.isWalking) {
@@ -796,7 +800,6 @@
                             }
                             if (gameState.shieldCount > 0) {
                                 gameState.shieldCount--;
-                                gameState.invincibleTimer = 800;  // brief i-frames after shield break too
                                 playSound('coin');
                             } else {
                                 // Lose a life
@@ -841,13 +844,15 @@
                     }
                 }
 
-                // Near-miss bonus for drainers
-                if (obj.type === 'drainer' && !obj.collected && obj.x < playerX - 60 && obj.x > playerX - 100) {
+                // Near-miss bonus for drainers — jump over them for bonus points
+                if (obj.type === 'drainer' && !obj.collected && obj.x < playerX - 40 && obj.x > playerX - 90) {
                     const verticalDistance = Math.abs(obj.y - playerY);
-                    if (verticalDistance > 70 && !obj.nearMissAwarded) {
+                    if (verticalDistance > 50 && !obj.nearMissAwarded) {
                         obj.nearMissAwarded = true;
-                        gameState.score += 5;
+                        gameState.score += 5 * gameState.comboMultiplier;
                         gameState.screenShake = 3;
+                        gameState.closeCallMessage = 'CLOSE CALL! +' + (5 * gameState.comboMultiplier);
+                        gameState.closeCallLife = 800;
                     }
                 }
             });
@@ -1003,6 +1008,17 @@
             if (gameState.comboMultiplier > 1) {
                 ctx.fillStyle = gameState.comboMultiplier === 3 ? '#ff00ff' : '#ffff00';
                 ctx.fillText(`${gameState.comboMultiplier}X COMBO`, 10, 60);
+            }
+
+            // Close call message
+            if (gameState.closeCallLife > 0) {
+                gameState.closeCallLife -= 16;
+                const alpha = Math.min(1, gameState.closeCallLife / 400);
+                ctx.fillStyle = `rgba(0, 255, 150, ${alpha})`;
+                ctx.font = `bold ${Math.round(canvas.height * 0.04)}px monospace`;
+                ctx.textAlign = 'center';
+                ctx.fillText(gameState.closeCallMessage, canvas.width / 2, canvas.height * 0.4);
+                ctx.textAlign = 'left';
             }
 
             // Lives display - owl faces, no glow/shadow
