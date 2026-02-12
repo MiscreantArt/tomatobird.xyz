@@ -442,7 +442,7 @@
             '#aaaaaa'   // lightGray
         ];
 
-        const LEADERBOARD_URL = 'https://jsonblob.com/api/jsonBlob/019c520c-aa15-7315-82c6-b1078f232295';
+        const LEADERBOARD_URL = 'https://tomatobird.xyz/api/scores';
 
         function loadHighScores() {
             // Load local scores first (instant)
@@ -479,15 +479,6 @@
             localStorage.setItem('etherDashHighScores', JSON.stringify(gameState.highScores));
         }
 
-        function syncGlobalScores() {
-            // Push current top 10 to global leaderboard
-            fetch(LEADERBOARD_URL, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(gameState.highScores)
-            }).catch(() => {}); // silently fail
-        }
-
         function addHighScore(initials, score) {
             gameState.highScores.push({ initials, score, date: Date.now() });
             gameState.highScores.sort((a, b) => b.score - a.score);
@@ -499,7 +490,21 @@
             );
 
             saveHighScores();
-            syncGlobalScores(); // push to global leaderboard
+
+            // Submit to global leaderboard (atomic — server handles merge)
+            fetch(LEADERBOARD_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ initials, score })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.scores) {
+                    gameState.highScores = data.scores;
+                    saveHighScores();
+                }
+            })
+            .catch(() => {});
         }
 
         function isHighScore(score) {
