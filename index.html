@@ -245,16 +245,20 @@
             money: 'audio/Money.mp3',
             textSound: 'audio/Text.mp3'
         };
+        const fetchPromises = [];
         for (const [name, url] of Object.entries(soundFiles)) {
-            fetch(url).then(r => r.arrayBuffer()).then(buf => {
+            const p = fetch(url).then(r => r.arrayBuffer()).then(buf => {
                 audioRawData[name] = buf;
             }).catch(() => {});
+            fetchPromises.push(p);
         }
+        const allFetched = Promise.all(fetchPromises);
 
         async function initAudio() {
             if (audioCtx) return;
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            // Decode any already-fetched audio data
+            // Wait for all fetches to complete, then decode
+            await allFetched;
             await decodeAllPending();
         }
 
@@ -1304,10 +1308,10 @@
                     const sw = src.naturalWidth, sh = src.naturalHeight;
                     const cropX = sw * 0.05, cropY = 0;
                     const cropW = sw * 0.9, cropH = sh * 0.58;
-                    const headSize = iconSize * 1.65;
+                    const headSize = iconSize * 1.85;
                     const drawH = headSize * (cropH / cropW);
                     ctx.drawImage(src, cropX, cropY, cropW, cropH,
-                        iconX - headSize/2, y - drawH * 0.65, headSize, drawH);
+                        iconX - headSize/2, y - drawH * 0.75, headSize, drawH);
                 } else if (line.img && line.img.complete) {
                     ctx.drawImage(line.img, iconX - iconSize/2, y - iconSize * 0.6, iconSize, iconSize);
                 } else if (line.emoji) {
