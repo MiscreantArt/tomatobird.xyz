@@ -1252,13 +1252,25 @@
                 ctx.drawImage(assets.images.title, 0, 0, canvas.width, canvas.height);
             }
 
-            // Tap to start
+            // Owl character bouncing
+            if (assets.images.look1.complete) {
+                const owlSize = canvas.width * 0.3;
+                const bounce = Math.sin(Date.now() / 500) * 8;
+                const owlX = canvas.width / 2 - owlSize / 2;
+                const owlY = canvas.height * 0.42 + bounce;
+                ctx.drawImage(assets.images.look1, owlX, owlY, owlSize, owlSize);
+            }
+
+            // Tap to start below owl
             ctx.fillStyle = '#0ff';
             ctx.font = '16px "Press Start 2P"';
             ctx.textAlign = 'center';
             ctx.shadowBlur = 10;
             ctx.shadowColor = '#0ff';
-            ctx.fillText('TAP TO START', canvas.width / 2, canvas.height * 0.6);
+            const pulseA = 0.5 + 0.5 * Math.sin(Date.now() / 300);
+            ctx.globalAlpha = pulseA;
+            ctx.fillText('TAP TO START', canvas.width / 2, canvas.height * 0.68);
+            ctx.globalAlpha = 1;
 
             // How to play button (left side of bottom)
             ctx.fillStyle = '#00ff88';
