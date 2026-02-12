@@ -169,7 +169,12 @@
             walk4: 'sprites/walk_4.png',
             walk5: 'sprites/walk_5.png',
             walk6: 'sprites/walk_6.png',
-            look1: 'sprites/look_1.png'
+            look1: 'sprites/look_1.png',
+            look2: 'sprites/look_2.png',
+            look3: 'sprites/look_3.png',
+            look4: 'sprites/look_4.png',
+            look5: 'sprites/look_5.png',
+            look6: 'sprites/look_6.png'
         };
 
         const audioToLoad = {
@@ -1252,21 +1257,23 @@
                 ctx.drawImage(assets.images.title, 0, 0, canvas.width, canvas.height);
             }
 
-            // Owl character bouncing
-            if (assets.images.look1.complete) {
+            // Animated owl sprite (look_1 through look_6)
+            const lookFrames = [assets.images.look1, assets.images.look2, assets.images.look3, assets.images.look4, assets.images.look5, assets.images.look6];
+            const frameIdx = Math.floor(Date.now() / 150) % 6;
+            const owlFrame = lookFrames[frameIdx];
+            if (owlFrame && owlFrame.complete) {
                 const owlSize = canvas.width * 0.3;
-                const bounce = Math.sin(Date.now() / 500) * 8;
                 const owlX = canvas.width / 2 - owlSize / 2;
-                const owlY = canvas.height * 0.42 + bounce;
-                ctx.drawImage(assets.images.look1, owlX, owlY, owlSize, owlSize);
+                const owlY = canvas.height * 0.42;
+                ctx.drawImage(owlFrame, owlX, owlY, owlSize, owlSize);
             }
 
             // Tap to start below owl
             ctx.fillStyle = '#0ff';
             ctx.font = '16px "Press Start 2P"';
             ctx.textAlign = 'center';
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = '#0ff';
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
             const pulseA = 0.5 + 0.5 * Math.sin(Date.now() / 300);
             ctx.globalAlpha = pulseA;
             ctx.fillText('TAP TO START', canvas.width / 2, canvas.height * 0.68);
