@@ -348,7 +348,8 @@
             milestoneReached: 0,
             newHighScoreIndex: -1,  // For highlighting new score
             compromiseMessage: '',  // Current compromise message
-            compromiseMessageLife: 0  // Life timer for message
+            compromiseMessageLife: 0,  // Life timer for message
+            milestoneFlash: 0  // White flash for milestone celebrations
         };
 
         // Get ground level Y position
@@ -563,6 +564,7 @@
                 this.bobOffset = 0;
 
                 // Magnet pull - only affects coins, not drainers
+                // Magnet pull — stronger, wider range
                 if (gameState.magnet && this.type === 'coin') {
                     const playerX = gameState.playerX;
                     const playerY = gameState.playerY;
@@ -570,11 +572,16 @@
                     const dy = playerY - this.y;
                     const distance = Math.sqrt(dx * dx + dy * dy);
 
-                    if (distance < 250) {
-                        const pullStrength = 5;
+                    if (distance < 350) {
+                        const pullStrength = 10 + (350 - distance) * 0.03;
                         this.x += (dx / distance) * pullStrength;
                         this.y += (dy / distance) * pullStrength;
                     }
+                }
+
+                // Big drainer moves slower
+                if (this.type === 'drainer' && this.width > 50) {
+                    this.x += speed * 0.3;  // Give back 30% of speed (net = 70%)
                 }
             }
 
@@ -590,13 +597,34 @@
                 switch (this.type) {
                     case 'coin':
                         if (assets.images.coinSprite.complete) {
+                            // Magnet trail effect
+                            if (gameState.magnet) {
+                                ctx.globalAlpha = 0.15;
+                                ctx.drawImage(assets.images.coinSprite, drawX - this.width/2 + 16, drawY, this.width, this.height);
+                                ctx.globalAlpha = 0.3;
+                                ctx.drawImage(assets.images.coinSprite, drawX - this.width/2 + 8, drawY, this.width, this.height);
+                                ctx.globalAlpha = 1;
+                            }
                             ctx.drawImage(assets.images.coinSprite, drawX - this.width/2, drawY, this.width, this.height);
                         }
                         break;
                     case 'drainer':
-                        if (assets.images.drainer.complete) {
-                            ctx.drawImage(assets.images.drainer, drawX - this.width/2, drawY, this.width, this.height);
+                        // Big drainers use drainer2 sprite
+                        const drainerImg = (this.width > 50 && assets.images.drainer2.complete)
+                            ? assets.images.drainer2 : assets.images.drainer;
+                        if (drainerImg.complete) {
+                            ctx.drawImage(drainerImg, drawX - this.width/2, drawY, this.width, this.height);
                         }
+                        break;
+                    case 'extraLife':
+                        ctx.fillStyle = '#ff3366';
+                        ctx.beginPath();
+                        ctx.arc(drawX, drawY + this.height/2, this.width/2, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.fillStyle = '#fff';
+                        ctx.font = '20px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('❤️', drawX, drawY + this.height/2 + 8);
                         break;
                     case 'shield':
                         ctx.fillStyle = '#ffd700';
@@ -701,6 +729,8 @@
             gameState.compromiseMessageLife = 0;
             gameState.closeCallMessage = '';
             gameState.closeCallLife = 0;
+            gameState.milestoneFlash = 0;
+            gameState.lastMilestone = 0;
         }
 
         function spawnObject() {
@@ -738,11 +768,22 @@
                         else if (r < 0.7) type = 'magnet';
                         else type = 'coinRain';
                     }
+
+                    // Extra life — very rare, only when damaged
+                    if (type === 'coin' && Math.random() < 0.008 && gameState.lives < 3) {
+                        type = 'extraLife';
+                    }
                 }
 
                 // Check for overlap with existing objects near spawn point
                 const xOffset = canvas.width + 100 + s * 80;  // stagger spawns
                 const newObj = new GameObject(type, heightType, xOffset);
+
+                // Big drainer — 30% of drainers are big
+                if (type === 'drainer' && Math.random() < 0.3) {
+                    newObj.width = 70;
+                    newObj.height = 70;
+                }
                 const overlaps = gameState.objects.some(obj =>
                     Math.abs(obj.x - newObj.x) < 50 && Math.abs(obj.y - newObj.y) < 50
                 );
@@ -895,14 +936,17 @@
 
                     switch (obj.type) {
                         case 'coin':
-                            const points = 1;
-                            gameState.score += points;
+                            gameState.score += 1;
                             gameState.coinsCollected++;
-                            if (false) { // combo removed
-                            }
 
-                            // Play coin sound ONLY when collected
-                            playSound('coin');
+                            // Milestone celebration every 50 coins
+                            if (gameState.coinsCollected % 50 === 0 && gameState.coinsCollected > gameState.lastMilestone) {
+                                gameState.lastMilestone = gameState.coinsCollected;
+                                gameState.milestoneFlash = 300;
+                                playSound('money');
+                            } else {
+                                playSound('coin');
+                            }
                             break;
 
                         case 'drainer':
@@ -958,6 +1002,12 @@
                         case 'coinRain':
                             gameState.coinRainTimer = 5000;  // 5 seconds of coin rain
                             playSound('coin');
+                            break;
+
+                        case 'extraLife':
+                            gameState.lives = Math.min(3, gameState.lives + 1);
+                            playSound('money');
+                            gameState.milestoneFlash = 200;
                             break;
                     }
                 }
@@ -1492,6 +1542,37 @@
                     drawBackground();
                     gameState.objects.forEach(obj => obj.draw());
                     drawPlayer();
+
+                    // Last life intensity - red tint with pulse
+                    if (gameState.lives === 1) {
+                        const pulseAlpha = 0.15 + 0.08 * Math.sin(Date.now() / 300);
+                        ctx.fillStyle = `rgba(255, 0, 0, ${pulseAlpha})`;
+                        ctx.fillRect(0, 0, canvas.width, canvas.height * PHYSICS.GAME_AREA_RATIO);
+                    }
+
+                    // Milestone flash
+                    if (gameState.milestoneFlash > 0) {
+                        const flashAlpha = gameState.milestoneFlash / 300;
+                        ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha})`;
+                        ctx.fillRect(0, 0, canvas.width, canvas.height * PHYSICS.GAME_AREA_RATIO);
+                        gameState.milestoneFlash -= deltaTime;
+                    }
+
+                    // Speed wind lines when going fast
+                    if (gameState.bgSpeed > 10) {
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                        ctx.lineWidth = 1;
+                        const t = Date.now();
+                        for (let i = 0; i < 4; i++) {
+                            const ly = ((i * 173 + t * 0.03) % (canvas.height * 0.7)) + 20;
+                            const lx = (t * (0.8 + i * 0.2)) % canvas.width;
+                            ctx.beginPath();
+                            ctx.moveTo(lx, ly);
+                            ctx.lineTo(lx - 60 - gameState.bgSpeed * 4, ly);
+                            ctx.stroke();
+                        }
+                    }
+
                     drawUI();
                     break;
 
