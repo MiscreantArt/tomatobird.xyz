@@ -281,6 +281,23 @@
 
         function playSound(name) {
             if (!audioEnabled || !audioCtx) return;
+            // Synthesized coin sound — no file decode needed, plays instantly
+            if (name === 'coin') {
+                const t = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1200, t);
+                osc.frequency.exponentialRampToValueAtTime(1800, t + 0.05);
+                osc.frequency.exponentialRampToValueAtTime(1400, t + 0.1);
+                gain.gain.setValueAtTime(0.25, t);
+                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.12);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(t);
+                osc.stop(t + 0.12);
+                return;
+            }
             // Synthesized shield block sound
             if (name === 'shieldBlock') {
                 const osc = audioCtx.createOscillator();
