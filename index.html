@@ -1202,7 +1202,7 @@
             ctx.textAlign = 'left';
 
             // Score
-            ctx.fillText(`SCORE: ${gameState.score}`, 10, 30);
+            ctx.fillText(`SCORE: ${gameState.score}`, 10, 20);
 
             // (combo display removed)
 
@@ -1214,7 +1214,7 @@
             ctx.shadowBlur = 0;
             ctx.shadowColor = 'transparent';
             const livesX = canvas.width - 10;
-            const livesY = -10;
+            const livesY = 5;
             const lifeSize = 65;
             const lifeSpacing = 55;
             const owlLifeImg = assets.images.look1;
