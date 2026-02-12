@@ -502,11 +502,9 @@
             }
 
             update(deltaTime) {
-                // Rain coins fall straight down
+                // Rain coins fall straight down — fixed to background, no horizontal drift
                 if (this.falling) {
                     this.y += this.fallSpeed * (deltaTime / 16);
-                    // Still scroll left slightly so they're not static columns
-                    this.x -= gameState.bgSpeed * 0.3;
                     this.pulseTime += deltaTime;
                     this.bobOffset = 0;
                     return;
@@ -582,7 +580,7 @@
                         ctx.fillText('🧲', drawX, drawY + this.height/2 + 8);
                         break;
                     case 'coinRain':
-                        ctx.fillStyle = '#00ffcc';
+                        ctx.fillStyle = '#ffd700';
                         ctx.beginPath();
                         ctx.arc(drawX, drawY + this.height/2, this.width/2, 0, Math.PI * 2);
                         ctx.fill();
@@ -681,10 +679,10 @@
 
                 // Only first spawn per tick can be drainer/powerup (rest are coins)
                 if (s === 0) {
-                    // Drainer logic - starts at 5% immediately, ramps to 30% over ~2min
+                    // Drainer logic - starts at 10%, ramps to 30% over ~2min
                     const gameTimeSec = gameState.gameTime / 1000;
                     if (gameState.drainersEnabled) {
-                        const drainerProb = Math.min(0.30, 0.05 + (gameTimeSec / 120) * 0.25);
+                        const drainerProb = Math.min(0.30, 0.10 + (gameTimeSec / 120) * 0.20);
                         if (Math.random() < drainerProb) {
                             type = 'drainer';
                         }
