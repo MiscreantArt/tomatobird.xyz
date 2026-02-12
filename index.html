@@ -364,15 +364,15 @@
                 if (!audioCtx) {
                     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 }
-                // Unlock coin audio pool — Chrome needs first play() in a user gesture
-                coinAudioPool.forEach(a => {
-                    a.muted = true;
-                    a.play().then(() => {
-                        a.pause();
-                        a.currentTime = 0;
-                        a.muted = false;
-                    }).catch(() => {});
-                });
+                // Unlock one coin audio element — Chrome needs first play() in a user gesture
+                const unlockAudio = coinAudioPool[0];
+                unlockAudio.muted = true;
+                unlockAudio.play().then(() => {
+                    unlockAudio.pause();
+                    unlockAudio.currentTime = 0;
+                    unlockAudio.muted = false;
+                    // All pool elements share the same src, unlocking one unlocks the gesture for all
+                }).catch(() => {});
             }
             // Chrome suspends AudioContext until user gesture — MUST resume first
             if (audioCtx && audioCtx.state === 'suspended') {
