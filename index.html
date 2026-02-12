@@ -818,6 +818,8 @@
         }
 
         function spawnObject() {
+            // Delay first spawn so audio has time to warm up
+            if (gameState.gameTime < 800) return;
             const now = Date.now();
             if (now - gameState.lastSpawnTime < gameState.spawnInterval) return;
 
