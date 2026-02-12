@@ -573,9 +573,9 @@
                 this.x -= speed;
                 this.pulseTime += deltaTime;
 
-                // Gentle float for coins and powerups (not drainers)
-                if (this.type !== 'drainer') {
-                    this.bobOffset = Math.sin(this.pulseTime / 400) * 4;
+                // Powerups float gently, coins and drainers stay still
+                if (this.type !== 'drainer' && this.type !== 'coin') {
+                    this.bobOffset = Math.sin(this.pulseTime / 400) * 5;
                 } else {
                     this.bobOffset = 0;
                 }
