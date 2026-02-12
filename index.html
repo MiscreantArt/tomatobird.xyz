@@ -303,7 +303,7 @@
             lives: 3,  // Lives system
             combo: 0,
             comboMultiplier: 1,
-            hasShield: false,
+            shieldCount: 0,  // 0=none, 1=single shield, 2=double shield
             magnet: false,
             magnetTimer: 0,
             bgScroll: 0,
@@ -584,7 +584,7 @@
             gameState.lives = 3;
             gameState.combo = 0;
             gameState.comboMultiplier = 1;
-            gameState.hasShield = false;
+            gameState.shieldCount = 0;
             gameState.speedBoost = false;
             gameState.speedBoostTimer = 0;
             gameState.bgScroll = 0;
@@ -626,7 +626,7 @@
             // Drainer logic - appears after 10+ COINS collected
             // Drainers spawn on ground level so you have to JUMP OVER them
             if (gameState.coinsCollected >= 10 && gameState.drainersEnabled) {
-                const drainerProb = Math.min(0.4, (gameState.coinsCollected - 10) / 80);
+                const drainerProb = Math.min(0.3, (gameState.coinsCollected - 10) / 200);
                 if (Math.random() < drainerProb) {
                     type = 'drainer';
                 }
@@ -782,8 +782,8 @@
                             break;
 
                         case 'drainer':
-                            if (gameState.hasShield) {
-                                gameState.hasShield = false;
+                            if (gameState.shieldCount > 0) {
+                                gameState.shieldCount--;
                                 playSound('coin');
                             } else {
                                 // Lose a life
@@ -815,7 +815,7 @@
                             break;
 
                         case 'shield':
-                            gameState.hasShield = true;
+                            gameState.shieldCount = Math.min(gameState.shieldCount + 1, 2);
                             playSound('coin');
                             break;
 
@@ -914,8 +914,8 @@
 
             const owlCenterY = playerY - playerSize / 2;
 
-            // Shield ring + yellow glow
-            if (gameState.hasShield) {
+            // Shield ring + yellow glow (double ring at 2 stacks)
+            if (gameState.shieldCount > 0) {
                 ctx.shadowBlur = 15;
                 ctx.shadowColor = '#ffd700';
                 ctx.strokeStyle = '#ffd700';
@@ -923,6 +923,12 @@
                 ctx.beginPath();
                 ctx.arc(playerX, owlCenterY, playerSize/2 + 5, 0, Math.PI * 2);
                 ctx.stroke();
+                if (gameState.shieldCount >= 2) {
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(playerX, owlCenterY, playerSize/2 + 12, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
             }
 
             // Magnet ring + red glow (overrides shield if both active)
