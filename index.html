@@ -474,6 +474,27 @@
             if (hsMusic) { hsMusic.pause(); hsMusic.currentTime = 0; }
         }
 
+        // Pause all audio when tab/app is hidden (switching apps, locking phone)
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                const music = assets.audio.bgMusic;
+                if (music && !music.paused) music.pause();
+                const hsMusic = assets.audio.hiScoreMusic;
+                if (hsMusic && !hsMusic.paused) hsMusic.pause();
+                if (audioCtx && audioCtx.state === 'running') audioCtx.suspend();
+            } else {
+                // Resume when coming back
+                if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+                if (currentState === GAME_STATE.PLAYING && musicStarted) {
+                    const music = assets.audio.bgMusic;
+                    if (music && music.paused) music.play().catch(() => {});
+                } else if (currentState === GAME_STATE.HIGH_SCORES || currentState === GAME_STATE.ENTER_INITIALS) {
+                    const hsMusic = assets.audio.hiScoreMusic;
+                    if (hsMusic && hsMusic.paused) hsMusic.play().catch(() => {});
+                }
+            }
+        });
+
         function playHiScoreMusic() {
             stopMusic();
             if (!audioEnabled) return;
