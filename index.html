@@ -32,7 +32,7 @@
             height: 100dvh; /* Use dynamic viewport height for mobile Safari */
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start; /* Push canvas to top, no black bar above */
             background: #000;
         }
 
@@ -363,7 +363,7 @@
             JUMP_FORCE: -20,
             GAME_AREA_RATIO: 0.9,  // Top 90% is game area  
             HOLD_ZONE_RATIO: 0.1,  // Bottom 10% is hold zone
-            GROUND_Y_RATIO: 0.82,  // Owl feet on railing
+            GROUND_Y_RATIO: 0.79,  // Owl feet on railing (between 0.765 and 0.82)
             PLAYER_X_RATIO: 0.3,   // Player at 30% from left
             WALK_SPEED_MULTIPLIER: 1,  // Direct speed when walking (applied to base walk speed)
             IDLE_SPEED: 0,  // No scroll when idle — owl only moves when you hold
@@ -1208,8 +1208,8 @@
             // Lives display - owl faces on same line as score, top right
             ctx.shadowBlur = 0;
             ctx.shadowColor = 'transparent';
-            const livesX = canvas.width - 80;  // Right-aligned with proper padding
-            const livesY = 35;  // Same horizontal line as score
+            const livesX = canvas.width - 10;  // Right edge
+            const livesY = -10;  // Original working position
             const lifeSize = 65;
             const lifeSpacing = 55;
             const owlLifeImg = assets.images.look1;
