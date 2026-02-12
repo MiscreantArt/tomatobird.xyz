@@ -361,32 +361,54 @@
             '#aaaaaa'   // lightGray
         ];
 
+        const LEADERBOARD_URL = 'https://jsonblob.com/api/jsonBlob/019c520c-aa15-7315-82c6-b1078f232295';
+
         function loadHighScores() {
+            // Load local scores first (instant)
             const saved = localStorage.getItem('etherDashHighScores');
             if (saved) {
                 gameState.highScores = JSON.parse(saved);
             } else {
-                gameState.highScores = [
-                    { initials: 'AAA', score: 100 },
-                    { initials: 'BBB', score: 75 },
-                    { initials: 'CCC', score: 50 },
-                    { initials: 'DDD', score: 30 },
-                    { initials: 'EEE', score: 20 },
-                    { initials: 'FFF', score: 15 },
-                    { initials: 'GGG', score: 10 },
-                    { initials: 'HHH', score: 8 },
-                    { initials: 'III', score: 5 },
-                    { initials: 'JJJ', score: 3 }
-                ];
+                gameState.highScores = [];
             }
+
+            // Then fetch global scores and merge
+            fetch(LEADERBOARD_URL)
+                .then(r => r.json())
+                .then(globalScores => {
+                    if (Array.isArray(globalScores)) {
+                        // Merge local and global, dedupe, keep top 10
+                        const all = [...gameState.highScores, ...globalScores];
+                        const seen = new Set();
+                        const unique = all.filter(e => {
+                            const key = e.initials + ':' + e.score;
+                            if (seen.has(key)) return false;
+                            seen.add(key);
+                            return true;
+                        });
+                        unique.sort((a, b) => b.score - a.score);
+                        gameState.highScores = unique.slice(0, 10);
+                        saveHighScores();
+                    }
+                })
+                .catch(() => {}); // silently fail — local scores still work
         }
 
         function saveHighScores() {
             localStorage.setItem('etherDashHighScores', JSON.stringify(gameState.highScores));
         }
 
+        function syncGlobalScores() {
+            // Push current top 10 to global leaderboard
+            fetch(LEADERBOARD_URL, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(gameState.highScores)
+            }).catch(() => {}); // silently fail
+        }
+
         function addHighScore(initials, score) {
-            gameState.highScores.push({ initials, score });
+            gameState.highScores.push({ initials, score, date: Date.now() });
             gameState.highScores.sort((a, b) => b.score - a.score);
             gameState.highScores = gameState.highScores.slice(0, 10);
 
@@ -396,6 +418,7 @@
             );
 
             saveHighScores();
+            syncGlobalScores(); // push to global leaderboard
         }
 
         function isHighScore(score) {
@@ -1154,7 +1177,7 @@
             ctx.textAlign = 'center';
             ctx.shadowBlur = 10;
             ctx.shadowColor = '#0ff';
-            ctx.fillText('HIGH SCORES', canvas.width / 2, 50);
+            ctx.fillText('GLOBAL HIGH SCORES', canvas.width / 2, 50);
 
             // Underline
             ctx.strokeStyle = '#0ff';
