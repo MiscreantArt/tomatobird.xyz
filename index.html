@@ -304,6 +304,7 @@
             combo: 0,
             comboMultiplier: 1,
             shieldCount: 0,  // 0=none, 1=single shield, 2=double shield
+            invincibleTimer: 0,  // i-frames after taking damage (ms)
             magnet: false,
             magnetTimer: 0,
             bgScroll: 0,
@@ -585,6 +586,7 @@
             gameState.combo = 0;
             gameState.comboMultiplier = 1;
             gameState.shieldCount = 0;
+            gameState.invincibleTimer = 0;
             gameState.speedBoost = false;
             gameState.speedBoostTimer = 0;
             gameState.bgScroll = 0;
@@ -747,6 +749,11 @@
             if (gameState.compromiseMessageLife > 0) {
                 gameState.compromiseMessageLife -= deltaTime;
             }
+
+            // Update invincibility timer
+            if (gameState.invincibleTimer > 0) {
+                gameState.invincibleTimer -= deltaTime;
+            }
         }
 
         function checkCollisions() {
@@ -782,12 +789,19 @@
                             break;
 
                         case 'drainer':
+                            if (gameState.invincibleTimer > 0) {
+                                // i-frames active, ignore hit
+                                obj.collected = false;  // don't consume the drainer
+                                return;
+                            }
                             if (gameState.shieldCount > 0) {
                                 gameState.shieldCount--;
+                                gameState.invincibleTimer = 800;  // brief i-frames after shield break too
                                 playSound('coin');
                             } else {
                                 // Lose a life
                                 gameState.lives--;
+                                gameState.invincibleTimer = 1500;  // 1.5s i-frames after taking damage
                                 gameState.combo = 0;
                                 gameState.comboMultiplier = 1;
                                 gameState.screenShake = 15;
@@ -903,6 +917,13 @@
         }
 
         function drawPlayer() {
+            // Invincibility flashing — skip drawing every other 100ms
+            if (gameState.invincibleTimer > 0) {
+                if (Math.floor(gameState.invincibleTimer / 100) % 2 === 0) {
+                    return;  // invisible frame — creates flashing effect
+                }
+            }
+
             const playerX = gameState.playerX;
             const playerY = gameState.playerY;
             const playerSize = getPlayerSize();
