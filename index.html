@@ -1299,12 +1299,14 @@
                 const y = startY + i * lineH;
                 // Draw sprite or emoji — owl head uses cropped look1
                 if (line.img === 'owlHead' && assets.images.look1.complete) {
-                    // Crop top half of owl sprite (the head) — drawn at full icon size
+                    // Crop owl head from sprite (ears to chin: 15%-55%)
                     const src = assets.images.look1;
-                    const cropH = src.height * 0.5;
-                    const headSize = iconSize * 1.4;
-                    ctx.drawImage(src, 0, 0, src.width, cropH,
-                        iconX - headSize/2, y - headSize * 0.4, headSize, headSize * 0.5);
+                    const srcX = src.width * 0.2, srcY = src.height * 0.15;
+                    const srcW = src.width * 0.6, srcH = src.height * 0.4;
+                    const headSize = iconSize * 2;
+                    const aspect = srcW / srcH;
+                    ctx.drawImage(src, srcX, srcY, srcW, srcH,
+                        iconX - headSize/2, y - headSize/(aspect*2), headSize, headSize / aspect);
                 } else if (line.img && line.img.complete) {
                     ctx.drawImage(line.img, iconX - iconSize/2, y - iconSize * 0.6, iconSize, iconSize);
                 } else if (line.emoji) {
