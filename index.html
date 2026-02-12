@@ -292,6 +292,10 @@
 
         function playSound(name) {
             if (!audioEnabled || !audioCtx) return;
+            // Force resume if still suspended
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
             // Synthesized coin sound — two-tone chime, instant, no decode needed
             if (name === 'coin') {
                 const t = audioCtx.currentTime;
