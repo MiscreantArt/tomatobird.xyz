@@ -296,28 +296,27 @@
             if (audioCtx.state === 'suspended') {
                 audioCtx.resume();
             }
-            // Synthesized coin sound — two-tone chime, instant, no decode needed
+            // Coin sound — use decoded buffer, fallback to file-less chime
             if (name === 'coin') {
+                if (audioBuffers['coin']) {
+                    const source = audioCtx.createBufferSource();
+                    source.buffer = audioBuffers['coin'];
+                    source.connect(audioCtx.destination);
+                    source.start(0);
+                    return;
+                }
+                // Fallback chime while buffer is still decoding
                 const t = audioCtx.currentTime;
                 const gain = audioCtx.createGain();
                 gain.gain.setValueAtTime(0.18, t);
-                gain.gain.linearRampToValueAtTime(0.22, t + 0.05);
-                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.25);
+                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
                 gain.connect(audioCtx.destination);
-                // First tone
                 const o1 = audioCtx.createOscillator();
                 o1.type = 'sine';
-                o1.frequency.setValueAtTime(988, t);  // B5
+                o1.frequency.setValueAtTime(988, t);
                 o1.connect(gain);
                 o1.start(t);
-                o1.stop(t + 0.12);
-                // Second tone (higher, slight delay)
-                const o2 = audioCtx.createOscillator();
-                o2.type = 'sine';
-                o2.frequency.setValueAtTime(1319, t + 0.07);  // E6
-                o2.connect(gain);
-                o2.start(t + 0.07);
-                o2.stop(t + 0.25);
+                o1.stop(t + 0.2);
                 return;
             }
             // Synthesized shield block sound
