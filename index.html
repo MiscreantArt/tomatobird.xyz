@@ -260,8 +260,9 @@
             if (audioCtx.state === 'suspended') {
                 await audioCtx.resume();
             }
+            // Wait for ALL sounds to be fetched, then decode all at once
+            await allFetched;
             await decodeAllPending();
-            allFetched.then(() => decodeAllPending());
         }
 
         async function decodeAllPending() {
