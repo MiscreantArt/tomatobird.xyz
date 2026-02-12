@@ -366,11 +366,11 @@
                 }
                 // Unlock coin audio pool — Chrome needs first play() in a user gesture
                 coinAudioPool.forEach(a => {
-                    a.volume = 0;
+                    a.muted = true;
                     a.play().then(() => {
                         a.pause();
                         a.currentTime = 0;
-                        a.volume = 0.5;
+                        a.muted = false;
                     }).catch(() => {});
                 });
             }
