@@ -257,9 +257,7 @@
         async function initAudio() {
             if (audioCtx) return;
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            // Decode what's ready now
             await decodeAllPending();
-            // Then wait for remaining fetches and decode again
             allFetched.then(() => decodeAllPending());
         }
 
@@ -326,7 +324,13 @@
         function enableAudio() {
             if (!audioEnabled) {
                 audioEnabled = true;
-                initAudio();
+                // Create AudioContext synchronously in user gesture (Chrome requirement)
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                // Kick off decoding in background
+                decodeAllPending();
+                allFetched.then(() => decodeAllPending());
             }
             // Chrome suspends AudioContext until user gesture — resume it
             if (audioCtx && audioCtx.state === 'suspended') {
@@ -1338,7 +1342,7 @@
             ctx.shadowColor = '#0ff';
             const pulseAlpha = 0.5 + 0.5 * Math.sin(Date.now() / 300);
             ctx.globalAlpha = pulseAlpha;
-            ctx.fillText('TAP TO START', cx, canvas.height - s * 4.5);
+            ctx.fillText('TAP TO START', cx, canvas.height - s * 6);
             ctx.globalAlpha = 1;
             ctx.shadowBlur = 0;
         }
