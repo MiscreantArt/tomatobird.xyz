@@ -104,19 +104,14 @@
         const ctx = canvas.getContext('2d');
         const loadingFill = document.getElementById('loadingFill');
 
-        // Canvas setup for portrait mobile
+        // Canvas setup for portrait mobile - fill screen better  
         function resizeCanvas() {
-            const aspectRatio = 9 / 16;
             const windowWidth = window.innerWidth;
             const windowHeight = window.innerHeight;
-
-            if (windowWidth / windowHeight > aspectRatio) {
-                canvas.height = windowHeight;
-                canvas.width = windowHeight * aspectRatio;
-            } else {
-                canvas.width = windowWidth;
-                canvas.height = windowWidth / aspectRatio;
-            }
+            
+            // Use full screen width and height - let CSS handle any scaling
+            canvas.width = windowWidth;
+            canvas.height = windowHeight;
         }
 
         resizeCanvas();
