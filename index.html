@@ -364,6 +364,15 @@
                 if (!audioCtx) {
                     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 }
+                // Unlock coin audio pool — Chrome needs first play() in a user gesture
+                coinAudioPool.forEach(a => {
+                    a.volume = 0;
+                    a.play().then(() => {
+                        a.pause();
+                        a.currentTime = 0;
+                        a.volume = 0.5;
+                    }).catch(() => {});
+                });
             }
             // Chrome suspends AudioContext until user gesture — MUST resume first
             if (audioCtx && audioCtx.state === 'suspended') {
