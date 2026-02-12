@@ -485,6 +485,8 @@
                 this.collected = false;
                 this.pulseTime = 0;
                 this.bobOffset = 0;
+                this.falling = false;  // rain coins fall straight down
+                this.fallSpeed = 0;
             }
 
             getYPosition(heightType) {
@@ -500,6 +502,16 @@
             }
 
             update(deltaTime) {
+                // Rain coins fall straight down
+                if (this.falling) {
+                    this.y += this.fallSpeed * (deltaTime / 16);
+                    // Still scroll left slightly so they're not static columns
+                    this.x -= gameState.bgSpeed * 0.3;
+                    this.pulseTime += deltaTime;
+                    this.bobOffset = 0;
+                    return;
+                }
+
                 let speed = gameState.bgSpeed;
 
                 // Jump moves forward - objects scroll faster when in air
@@ -585,7 +597,7 @@
             }
 
             isOffScreen() {
-                return this.x < -this.width;
+                return this.x < -this.width || this.y > canvas.height + this.height;
             }
 
             // Bounding box collision detection
@@ -669,10 +681,10 @@
 
                 // Only first spawn per tick can be drainer/powerup (rest are coins)
                 if (s === 0) {
-                    // Drainer logic - time-based gradual ramp
+                    // Drainer logic - starts at 5% immediately, ramps to 30% over ~2min
                     const gameTimeSec = gameState.gameTime / 1000;
-                    if (gameTimeSec > 15 && gameState.drainersEnabled) {
-                        const drainerProb = Math.min(0.25, ((gameTimeSec - 15) * (gameTimeSec - 15)) / 40000);
+                    if (gameState.drainersEnabled) {
+                        const drainerProb = Math.min(0.30, 0.05 + (gameTimeSec / 120) * 0.25);
                         if (Math.random() < drainerProb) {
                             type = 'drainer';
                         }
@@ -696,6 +708,21 @@
                 );
                 if (!overlaps && gameState.objects.length < 25) {
                     gameState.objects.push(newObj);
+                }
+            }
+
+            // Coin rain: spawn falling coins from the top of the screen
+            if (gameState.coinRainTimer > 0) {
+                const rainCount = 2;  // 2 rain coins per spawn tick
+                for (let r = 0; r < rainCount; r++) {
+                    const rainCoin = new GameObject('coin', 'upper', 0);
+                    rainCoin.x = Math.random() * canvas.width * 0.8 + canvas.width * 0.1;
+                    rainCoin.y = -20 - Math.random() * 40;
+                    rainCoin.falling = true;
+                    rainCoin.fallSpeed = 3 + Math.random() * 2;
+                    if (gameState.objects.length < 35) {
+                        gameState.objects.push(rainCoin);
+                    }
                 }
             }
         }
@@ -1078,18 +1105,7 @@
                 ctx.textAlign = 'left';
             }
 
-            // Coin rain visual — tiny coins falling from sky
-            if (gameState.coinRainTimer > 0 && assets.images.coinSprite.complete) {
-                const rainSize = 20;
-                const t = Date.now();
-                for (let i = 0; i < 12; i++) {
-                    const rx = ((i * 97 + t * 0.05) % canvas.width);
-                    const ry = ((i * 137 + t * 0.15) % (canvas.height * 0.7));
-                    ctx.globalAlpha = 0.4;
-                    ctx.drawImage(assets.images.coinSprite, rx, ry, rainSize, rainSize);
-                }
-                ctx.globalAlpha = 1;
-            }
+            // Coin rain — handled in spawnObject, no extra visual needed here
 
             // Lives display - owl faces, no glow/shadow
             ctx.shadowBlur = 0;
@@ -1166,11 +1182,16 @@
             ctx.shadowColor = '#0ff';
             ctx.fillText('TAP TO START', canvas.width / 2, canvas.height * 0.6);
 
-            // High scores button
+            // How to play button (left side of bottom)
+            ctx.fillStyle = '#00ff88';
+            ctx.shadowColor = '#00ff88';
+            ctx.font = '12px "Press Start 2P"';
+            ctx.fillText('HOW TO PLAY', canvas.width * 0.25, canvas.height * 0.78);
+
+            // High scores button (right side of bottom)
             ctx.fillStyle = '#ff00ff';
             ctx.shadowColor = '#ff00ff';
-            ctx.fillText('TAP BOTTOM FOR', canvas.width / 2, canvas.height * 0.75);
-            ctx.fillText('HIGH SCORES', canvas.width / 2, canvas.height * 0.75 + 25);
+            ctx.fillText('HIGH SCORES', canvas.width * 0.75, canvas.height * 0.78);
         }
 
         function drawHowToPlay() {
@@ -1504,7 +1525,9 @@
 
             switch (currentState) {
                 case GAME_STATE.TITLE:
-                    if (y > canvas.height * 0.7) {
+                    if (y > canvas.height * 0.7 && x < canvas.width * 0.5) {
+                        currentState = GAME_STATE.HOW_TO_PLAY;
+                    } else if (y > canvas.height * 0.7 && x >= canvas.width * 0.5) {
                         currentState = GAME_STATE.HIGH_SCORES; playHiScoreMusic();
                     } else if (!localStorage.getItem('etherDashTutorialSeen')) {
                         currentState = GAME_STATE.HOW_TO_PLAY;
@@ -1584,7 +1607,9 @@
 
             switch (currentState) {
                 case GAME_STATE.TITLE:
-                    if (y > canvas.height * 0.7) {
+                    if (y > canvas.height * 0.7 && x < canvas.width * 0.5) {
+                        currentState = GAME_STATE.HOW_TO_PLAY;
+                    } else if (y > canvas.height * 0.7 && x >= canvas.width * 0.5) {
                         currentState = GAME_STATE.HIGH_SCORES; playHiScoreMusic();
                     } else if (!localStorage.getItem('etherDashTutorialSeen')) {
                         currentState = GAME_STATE.HOW_TO_PLAY;
