@@ -254,12 +254,19 @@
         async function initAudio() {
             if (audioCtx) return;
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            // Decode pre-fetched audio data
+            // Decode any already-fetched audio data
+            await decodeAllPending();
+        }
+
+        async function decodeAllPending() {
+            if (!audioCtx) return;
             for (const [name, buf] of Object.entries(audioRawData)) {
-                try {
-                    audioBuffers[name] = await audioCtx.decodeAudioData(buf.slice(0));
-                } catch(e) {
-                    console.warn('Failed to decode sound:', name);
+                if (!audioBuffers[name]) {
+                    try {
+                        audioBuffers[name] = await audioCtx.decodeAudioData(buf.slice(0));
+                    } catch(e) {
+                        console.warn('Failed to decode sound:', name);
+                    }
                 }
             }
         }
@@ -281,7 +288,15 @@
                 osc.stop(audioCtx.currentTime + 0.2);
                 return;
             }
-            if (!audioBuffers[name]) return;
+            if (!audioBuffers[name]) {
+                // Try late decode if raw data arrived after initAudio
+                if (audioRawData[name]) {
+                    audioCtx.decodeAudioData(audioRawData[name].slice(0)).then(buf => {
+                        audioBuffers[name] = buf;
+                    }).catch(() => {});
+                }
+                return;
+            }
             const source = audioCtx.createBufferSource();
             source.buffer = audioBuffers[name];
             source.connect(audioCtx.destination);
