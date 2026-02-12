@@ -324,7 +324,7 @@
             particles: [],
             screenShake: 0,
             lastSpawnTime: 0,
-            spawnInterval: 650,  // Faster spawn start
+            spawnInterval: 400,  // Fast spawns — screen full of coins
             gameTime: 0,
             drainersEnabled: false,
             highScores: [],
@@ -627,7 +627,7 @@
             gameState.particles = [];
             gameState.screenShake = 0;
             gameState.lastSpawnTime = 0;
-            gameState.spawnInterval = 650;
+            gameState.spawnInterval = 400;
             gameState.gameTime = 0;
             gameState.drainersEnabled = false;
             gameState.milestoneReached = 0;
@@ -672,7 +672,7 @@
             const overlaps = gameState.objects.some(obj =>
                 Math.abs(obj.x - newObj.x) < 60 && Math.abs(obj.y - newObj.y) < 60
             );
-            if (!overlaps && gameState.objects.length < 8) {
+            if (!overlaps && gameState.objects.length < 15) {
                 gameState.objects.push(newObj);
             }
         }
@@ -752,7 +752,7 @@
             // Increase difficulty every 15 seconds (smoother ramp)
             if (Math.floor(gameState.gameTime / 15000) > Math.floor((gameState.gameTime - deltaTime) / 15000)) {
                 gameState.walkSpeedBonus = (gameState.walkSpeedBonus || 0) + 0.3;
-                gameState.spawnInterval = Math.max(450, gameState.spawnInterval - 50);
+                gameState.spawnInterval = Math.max(300, gameState.spawnInterval - 30);
             }
             // Apply walk speed bonus when walking
             if (gameState.isWalking) {
@@ -1145,30 +1145,38 @@
             ctx.shadowBlur = 0;
             ctx.shadowColor = 'transparent';
 
-            // Instructions
-            const lines = [
-                { icon: '👆', color: '#00ff88', text: 'HOLD to walk' },
-                { icon: '🦅', color: '#00ff88', text: 'RELEASE to jump' },
-                { icon: '🪙', color: '#ffd700', text: 'Collect ETH coins' },
-                { icon: '💀', color: '#ff4444', text: 'Avoid drainer skulls' },
-                { icon: '🛡️', color: '#ffd700', text: 'Shield = protection' },
-                { icon: '🧲', color: '#ff4444', text: 'Magnet = sucks coins' },
-                { icon: '❤️', color: '#ff6688', text: '3 lives — don\'t get rugged!' },
-            ];
-
+            // Instructions with game sprites
+            const iconSize = Math.round(s * 2);
             const startY = s * 5;
-            const lineH = s * 2.8;
-            ctx.font = `${Math.round(s * 0.9)}px "Press Start 2P"`;
+            const lineH = s * 3;
+            const iconX = cx - canvas.width * 0.32;
+            const textX = cx + canvas.width * 0.05;
+
+            const lines = [
+                { img: null, emoji: '👆', color: '#00ff88', text: 'HOLD to walk' },
+                { img: null, emoji: '🦅', color: '#00ff88', text: 'RELEASE to jump' },
+                { img: assets.images.coin, color: '#ffd700', text: 'Collect ETH coins' },
+                { img: assets.images.drainer, color: '#ff4444', text: 'Avoid drainers!' },
+                { img: null, emoji: '🛡️', color: '#ffd700', text: 'Shield blocks 1 hit' },
+                { img: null, emoji: '🧲', color: '#ff4444', text: 'Magnet pulls coins' },
+                { img: assets.images.look1, color: '#ff6688', text: '3 lives — don\'t get rugged!' },
+            ];
 
             lines.forEach((line, i) => {
                 const y = startY + i * lineH;
-                // Icon
-                ctx.font = `${Math.round(s * 1.2)}px sans-serif`;
-                ctx.fillText(line.icon, cx - canvas.width * 0.3, y);
+                // Draw sprite or emoji
+                if (line.img && line.img.complete) {
+                    ctx.drawImage(line.img, iconX - iconSize/2, y - iconSize * 0.7, iconSize, iconSize);
+                } else if (line.emoji) {
+                    ctx.font = `${Math.round(s * 1.3)}px sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.fillText(line.emoji, iconX, y);
+                }
                 // Text
-                ctx.font = `${Math.round(s * 0.85)}px "Press Start 2P"`;
+                ctx.font = `${Math.round(s * 0.8)}px "Press Start 2P"`;
+                ctx.textAlign = 'center';
                 ctx.fillStyle = line.color;
-                ctx.fillText(line.text, cx + canvas.width * 0.05, y);
+                ctx.fillText(line.text, textX, y);
             });
 
             // Tap to start
