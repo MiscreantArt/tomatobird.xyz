@@ -262,6 +262,9 @@
         async function initAudio() {
             if (audioCtx) return;
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') {
+                await audioCtx.resume();
+            }
             await decodeAllPending();
             allFetched.then(() => decodeAllPending());
         }
