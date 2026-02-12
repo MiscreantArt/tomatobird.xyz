@@ -364,15 +364,7 @@
                 if (!audioCtx) {
                     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 }
-                // Unlock one coin audio element — Chrome needs first play() in a user gesture
-                const unlockAudio = coinAudioPool[0];
-                unlockAudio.muted = true;
-                unlockAudio.play().then(() => {
-                    unlockAudio.pause();
-                    unlockAudio.currentTime = 0;
-                    unlockAudio.muted = false;
-                    // All pool elements share the same src, unlocking one unlocks the gesture for all
-                }).catch(() => {});
+                // No unlock needed — spawn delay gives Chrome time to warm up
             }
             // Chrome suspends AudioContext until user gesture — MUST resume first
             if (audioCtx && audioCtx.state === 'suspended') {
@@ -819,7 +811,7 @@
 
         function spawnObject() {
             // Delay first spawn so audio has time to warm up
-            if (gameState.gameTime < 800) return;
+            if (gameState.gameTime < 1500) return;
             const now = Date.now();
             if (now - gameState.lastSpawnTime < gameState.spawnInterval) return;
 
