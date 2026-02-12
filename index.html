@@ -489,7 +489,7 @@
                 if (currentState === GAME_STATE.PLAYING && musicStarted) {
                     const music = assets.audio.bgMusic;
                     if (music && music.paused) music.play().catch(() => {});
-                } else if (currentState === GAME_STATE.HIGH_SCORES || currentState === GAME_STATE.ENTER_INITIALS) {
+                } else if (currentState === GAME_STATE.GAME_OVER || currentState === GAME_STATE.HIGH_SCORES || currentState === GAME_STATE.ENTER_INITIALS) {
                     const hsMusic = assets.audio.hiScoreMusic;
                     if (hsMusic && hsMusic.paused) hsMusic.play().catch(() => {});
                 }
@@ -629,24 +629,17 @@
                         }
                         break;
                     case 'extraLife':
-                        ctx.font = '36px Arial';
-                        ctx.textAlign = 'center';
-                        ctx.fillText('❤️', drawX, drawY + this.height/2 + 12);
-                        break;
                     case 'shield':
-                        ctx.font = '36px Arial';
-                        ctx.textAlign = 'center';
-                        ctx.fillText('🛡️', drawX, drawY + this.height/2 + 12);
-                        break;
                     case 'magnet':
-                        ctx.font = '36px Arial';
-                        ctx.textAlign = 'center';
-                        ctx.fillText('🧲', drawX, drawY + this.height/2 + 12);
-                        break;
                     case 'coinRain':
+                        ctx.shadowBlur = 15;
+                        ctx.shadowColor = '#ffffff';
                         ctx.font = '36px Arial';
                         ctx.textAlign = 'center';
-                        ctx.fillText('🌧️', drawX, drawY + this.height/2 + 12);
+                        const emojiMap = { extraLife: '❤️', shield: '🛡️', magnet: '🧲', coinRain: '🌧️' };
+                        ctx.fillText(emojiMap[this.type], drawX, drawY + this.height/2 + 12);
+                        ctx.shadowBlur = 0;
+                        ctx.shadowColor = 'transparent';
                         break;
                 }
 
@@ -779,16 +772,16 @@
                 }
             }
 
-            // Coin rain: fast coins pouring from top-right
+            // Coin rain: dense shower from top-right, angled toward player
             if (gameState.coinRainTimer > 0) {
-                const rainCount = 3;  // 3 rain coins per spawn tick
+                const rainCount = 4;  // 4 rain coins per spawn tick
                 for (let r = 0; r < rainCount; r++) {
                     const rainCoin = new GameObject('coin', 'upper', 0);
-                    // Spawn from top-right quadrant so player runs into them
-                    rainCoin.x = canvas.width * 0.5 + Math.random() * canvas.width * 0.5;
-                    rainCoin.y = -20 - Math.random() * 60;
+                    // Spread across right 60% of screen, staggered heights
+                    rainCoin.x = canvas.width * 0.4 + Math.random() * canvas.width * 0.6;
+                    rainCoin.y = -20 - Math.random() * 80;
                     rainCoin.falling = true;
-                    rainCoin.fallSpeed = 6 + Math.random() * 4;  // much faster
+                    rainCoin.fallSpeed = 8 + Math.random() * 5;  // fast rain
                     if (gameState.objects.length < 35) {
                         gameState.objects.push(rainCoin);
                     }
@@ -1596,7 +1589,7 @@
                     if (y > canvas.height * 0.7 && x < canvas.width * 0.5) {
                         currentState = GAME_STATE.HOW_TO_PLAY;
                     } else if (y > canvas.height * 0.7 && x >= canvas.width * 0.5) {
-                        currentState = GAME_STATE.HIGH_SCORES; playHiScoreMusic();
+                        currentState = GAME_STATE.HIGH_SCORES;
                     } else if (!localStorage.getItem('etherDashTutorialSeen')) {
                         currentState = GAME_STATE.HOW_TO_PLAY;
                     } else {
@@ -1622,7 +1615,7 @@
                         initialsInput = { letters: ['A', 'A', 'A'], currentIndex: 0, blinkTimer: 0 };
                         currentState = GAME_STATE.ENTER_INITIALS;
                     } else {
-                        currentState = GAME_STATE.HIGH_SCORES; playHiScoreMusic();
+                        currentState = GAME_STATE.HIGH_SCORES;
                     }
                     break;
 
@@ -1649,7 +1642,7 @@
                     if (y > submitY && y < submitY + 50 && x > canvas.width / 2 - 100 && x < canvas.width / 2 + 100) {
                         const initials = initialsInput.letters.join('');
                         addHighScore(initials, gameState.score);
-                        currentState = GAME_STATE.HIGH_SCORES; playHiScoreMusic();
+                        currentState = GAME_STATE.HIGH_SCORES;
                     }
                     break;
             }
@@ -1678,7 +1671,7 @@
                     if (y > canvas.height * 0.7 && x < canvas.width * 0.5) {
                         currentState = GAME_STATE.HOW_TO_PLAY;
                     } else if (y > canvas.height * 0.7 && x >= canvas.width * 0.5) {
-                        currentState = GAME_STATE.HIGH_SCORES; playHiScoreMusic();
+                        currentState = GAME_STATE.HIGH_SCORES;
                     } else if (!localStorage.getItem('etherDashTutorialSeen')) {
                         currentState = GAME_STATE.HOW_TO_PLAY;
                     } else {
@@ -1703,7 +1696,7 @@
                         initialsInput = { letters: ['A', 'A', 'A'], currentIndex: 0, blinkTimer: 0 };
                         currentState = GAME_STATE.ENTER_INITIALS;
                     } else {
-                        currentState = GAME_STATE.HIGH_SCORES; playHiScoreMusic();
+                        currentState = GAME_STATE.HIGH_SCORES;
                     }
                     break;
 
@@ -1728,7 +1721,7 @@
                     if (y > submitY && y < submitY + 50 && x > canvas.width / 2 - 100 && x < canvas.width / 2 + 100) {
                         const initials = initialsInput.letters.join('');
                         addHighScore(initials, gameState.score);
-                        currentState = GAME_STATE.HIGH_SCORES; playHiScoreMusic();
+                        currentState = GAME_STATE.HIGH_SCORES;
                     }
                     break;
             }
