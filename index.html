@@ -235,24 +235,31 @@
         let musicStarted = false;
         let audioCtx = null;
         const audioBuffers = {};
+        const audioRawData = {};
+
+        // Pre-fetch audio files immediately (no user gesture needed for fetch)
+        const soundFiles = {
+            jump: 'audio/Jump.mp3',
+            coin: 'audio/Coin.mp3',
+            drain: 'audio/Drain.mp3',
+            money: 'audio/Money.mp3',
+            textSound: 'audio/Text.mp3'
+        };
+        for (const [name, url] of Object.entries(soundFiles)) {
+            fetch(url).then(r => r.arrayBuffer()).then(buf => {
+                audioRawData[name] = buf;
+            }).catch(() => {});
+        }
 
         async function initAudio() {
             if (audioCtx) return;
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const sounds = {
-                jump: 'audio/Jump.mp3',
-                coin: 'audio/Coin.mp3',
-                drain: 'audio/Drain.mp3',
-                money: 'audio/Money.mp3',
-                textSound: 'audio/Text.mp3'
-            };
-            for (const [name, url] of Object.entries(sounds)) {
+            // Decode pre-fetched audio data
+            for (const [name, buf] of Object.entries(audioRawData)) {
                 try {
-                    const response = await fetch(url);
-                    const arrayBuffer = await response.arrayBuffer();
-                    audioBuffers[name] = await audioCtx.decodeAudioData(arrayBuffer);
+                    audioBuffers[name] = await audioCtx.decodeAudioData(buf.slice(0));
                 } catch(e) {
-                    console.warn('Failed to load sound:', name);
+                    console.warn('Failed to decode sound:', name);
                 }
             }
         }
@@ -287,8 +294,7 @@
             }
         }
 
-        // Pre-init audio context on first page load (buffers ready before gameplay)
-        initAudio();
+        // Audio context created on first user gesture (enableAudio), raw files pre-fetched above
 
         // ==========================================
         // GAME VARIABLES
@@ -511,9 +517,12 @@
             }
 
             update(deltaTime) {
-                // Rain coins fall straight down — fixed to background, no horizontal drift
+                // Rain coins fall down AND scroll left with the background
                 if (this.falling) {
                     this.y += this.fallSpeed * (deltaTime / 16);
+                    let speed = gameState.bgSpeed;
+                    if (!gameState.grounded) speed *= PHYSICS.JUMP_SPEED_MULTIPLIER;
+                    this.x -= speed;
                     this.pulseTime += deltaTime;
                     this.bobOffset = 0;
                     return;
@@ -605,8 +614,7 @@
 
             isOffScreen() {
                 if (this.falling) {
-                    // Rain coins disappear at the ground level (game area bottom)
-                    return this.y > canvas.height * PHYSICS.GAME_AREA_RATIO;
+                    return this.x < -this.width || this.y > canvas.height * PHYSICS.GAME_AREA_RATIO;
                 }
                 return this.x < -this.width;
             }
