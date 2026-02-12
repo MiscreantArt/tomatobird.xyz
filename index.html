@@ -277,9 +277,18 @@
         }
 
         function enableAudio() {
-            audioEnabled = true;
-            initAudio();
+            if (!audioEnabled) {
+                audioEnabled = true;
+                initAudio();
+            }
+            // Chrome suspends AudioContext until user gesture — resume it
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
         }
+
+        // Pre-init audio context on first page load (buffers ready before gameplay)
+        initAudio();
 
         // ==========================================
         // GAME VARIABLES
@@ -595,7 +604,11 @@
             }
 
             isOffScreen() {
-                return this.x < -this.width || this.y > canvas.height + this.height;
+                if (this.falling) {
+                    // Rain coins disappear at the ground level (game area bottom)
+                    return this.y > canvas.height * PHYSICS.GAME_AREA_RATIO;
+                }
+                return this.x < -this.width;
             }
 
             // Bounding box collision detection
@@ -926,17 +939,7 @@
                     }
                 }
 
-                // Near-miss bonus for drainers — jump over them for bonus points
-                if (obj.type === 'drainer' && !obj.collected && obj.x < playerX - 40 && obj.x > playerX - 90) {
-                    const verticalDistance = Math.abs(obj.y - playerY);
-                    if (verticalDistance > 50 && !obj.nearMissAwarded) {
-                        obj.nearMissAwarded = true;
-                        gameState.score += 5 * gameState.comboMultiplier;
-                        gameState.screenShake = 3;
-                        gameState.closeCallMessage = 'CLOSE CALL! +' + (5 * gameState.comboMultiplier);
-                        gameState.closeCallLife = 800;
-                    }
-                }
+                // (close call removed)
             });
 
             // Remove collected and off-screen objects
@@ -1092,16 +1095,7 @@
                 ctx.fillText(`${gameState.comboMultiplier}X COMBO`, 10, 60);
             }
 
-            // Close call message
-            if (gameState.closeCallLife > 0) {
-                gameState.closeCallLife -= 16;
-                const alpha = Math.min(1, gameState.closeCallLife / 400);
-                ctx.fillStyle = `rgba(0, 255, 150, ${alpha})`;
-                ctx.font = `bold ${Math.round(canvas.height * 0.04)}px monospace`;
-                ctx.textAlign = 'center';
-                ctx.fillText(gameState.closeCallMessage, canvas.width / 2, canvas.height * 0.4);
-                ctx.textAlign = 'left';
-            }
+            // (close call display removed)
 
             // Coin rain — handled in spawnObject, no extra visual needed here
 
