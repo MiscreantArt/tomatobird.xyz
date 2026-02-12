@@ -290,8 +290,28 @@
             const allDecoded = Object.keys(soundFiles).every(n => audioBuffers[n]);
         }
 
+        // HTML5 Audio pool for coin sound — bypasses AudioContext decode delay
+        const coinAudioPool = [];
+        const COIN_POOL_SIZE = 6;
+        for (let i = 0; i < COIN_POOL_SIZE; i++) {
+            const a = new Audio('audio/Coin.mp3');
+            a.volume = 0.5;
+            a.preload = 'auto';
+            coinAudioPool.push(a);
+        }
+        let coinPoolIndex = 0;
+
         function playSound(name) {
-            if (!audioEnabled || !audioCtx) return;
+            if (!audioEnabled) return;
+            // Coin uses HTML5 Audio pool — works immediately, no decode needed
+            if (name === 'coin') {
+                const a = coinAudioPool[coinPoolIndex];
+                a.currentTime = 0;
+                a.play().catch(() => {});
+                coinPoolIndex = (coinPoolIndex + 1) % COIN_POOL_SIZE;
+                return;
+            }
+            if (!audioCtx) return;
             // Synthesized shield block sound
             if (name === 'shieldBlock') {
                 const osc = audioCtx.createOscillator();
@@ -1209,18 +1229,18 @@
 
             // Coin rain — handled in spawnObject, no extra visual needed here
 
-            // Lives display - owl faces, no glow/shadow
+            // Lives display - owl faces on same line as score, top right
             ctx.shadowBlur = 0;
             ctx.shadowColor = 'transparent';
-            const livesX = canvas.width - 45;
-            const livesY = 45;
-            const lifeSize = 65;
-            const lifeSpacing = 55;
+            const livesX = canvas.width - 10;
+            const livesY = 5;
+            const lifeSize = 35;
+            const lifeSpacing = 32;
             const owlLifeImg = assets.images.look1;
 
             for (let i = 0; i < gameState.lives; i++) {
                 const lx = livesX - (i * lifeSpacing) - lifeSize;
-                const ly = livesY - 5;
+                const ly = livesY;
                 if (owlLifeImg && owlLifeImg.complete) {
                     const sw = owlLifeImg.naturalWidth;
                     const sh = owlLifeImg.naturalHeight;
