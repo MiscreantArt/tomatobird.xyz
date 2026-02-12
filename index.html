@@ -883,10 +883,8 @@
                 gameState.bgSpeed = 7 + (gameState.walkSpeedBonus || 0);  // Faster base speed
             }
 
-            // Enable drainers at 10+ coins
-            if (gameState.coinsCollected >= 10) {
-                gameState.drainersEnabled = true;
-            }
+            // Drainers enabled from the start
+            gameState.drainersEnabled = true;
 
             // Visual milestones
             if (gameState.score >= 200 && gameState.milestoneReached < 3) {
@@ -932,14 +930,7 @@
                             gameState.score += 1;
                             gameState.coinsCollected++;
 
-                            // Milestone celebration every 50 coins
-                            if (gameState.coinsCollected % 50 === 0 && gameState.coinsCollected > gameState.lastMilestone) {
-                                gameState.lastMilestone = gameState.coinsCollected;
-                                gameState.milestoneFlash = 300;
-                                playSound('money');
-                            } else {
-                                playSound('coin');
-                            }
+                            playSound('coin');
                             break;
 
                         case 'drainer':
@@ -1549,13 +1540,7 @@
                         ctx.fillRect(0, 0, canvas.width, canvas.height * PHYSICS.GAME_AREA_RATIO);
                     }
 
-                    // Milestone flash
-                    if (gameState.milestoneFlash > 0) {
-                        const flashAlpha = gameState.milestoneFlash / 300;
-                        ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha})`;
-                        ctx.fillRect(0, 0, canvas.width, canvas.height * PHYSICS.GAME_AREA_RATIO);
-                        gameState.milestoneFlash -= deltaTime;
-                    }
+                    // (milestone flash removed)
 
                     // Speed wind lines when going fast
                     if (gameState.bgSpeed > 10) {
