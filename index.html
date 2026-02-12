@@ -257,9 +257,10 @@
         async function initAudio() {
             if (audioCtx) return;
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            // Wait for all fetches to complete, then decode
-            await allFetched;
+            // Decode what's ready now
             await decodeAllPending();
+            // Then wait for remaining fetches and decode again
+            allFetched.then(() => decodeAllPending());
         }
 
         async function decodeAllPending() {
@@ -293,10 +294,14 @@
                 return;
             }
             if (!audioBuffers[name]) {
-                // Try late decode if raw data arrived after initAudio
+                // Try late decode if raw data arrived after initAudio — play once ready
                 if (audioRawData[name]) {
                     audioCtx.decodeAudioData(audioRawData[name].slice(0)).then(buf => {
                         audioBuffers[name] = buf;
+                        const s = audioCtx.createBufferSource();
+                        s.buffer = buf;
+                        s.connect(audioCtx.destination);
+                        s.start(0);
                     }).catch(() => {});
                 }
                 return;
