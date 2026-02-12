@@ -290,28 +290,32 @@
             const allDecoded = Object.keys(soundFiles).every(n => audioBuffers[n]);
         }
 
-        // HTML5 Audio pool for coin sound — bypasses AudioContext decode delay
-        const coinAudioPool = [];
-        const COIN_POOL_SIZE = 6;
-        for (let i = 0; i < COIN_POOL_SIZE; i++) {
-            const a = new Audio('audio/Coin.mp3');
-            a.volume = 0.5;
-            a.preload = 'auto';
-            coinAudioPool.push(a);
-        }
-        let coinPoolIndex = 0;
-
         function playSound(name) {
-            if (!audioEnabled) return;
-            // Coin uses HTML5 Audio pool — works immediately, no decode needed
+            if (!audioEnabled || !audioCtx) return;
+            // Synthesized coin sound — two-tone chime, instant, no decode needed
             if (name === 'coin') {
-                const a = coinAudioPool[coinPoolIndex];
-                a.currentTime = 0;
-                a.play().catch(() => {});
-                coinPoolIndex = (coinPoolIndex + 1) % COIN_POOL_SIZE;
+                const t = audioCtx.currentTime;
+                const gain = audioCtx.createGain();
+                gain.gain.setValueAtTime(0.18, t);
+                gain.gain.linearRampToValueAtTime(0.22, t + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.25);
+                gain.connect(audioCtx.destination);
+                // First tone
+                const o1 = audioCtx.createOscillator();
+                o1.type = 'sine';
+                o1.frequency.setValueAtTime(988, t);  // B5
+                o1.connect(gain);
+                o1.start(t);
+                o1.stop(t + 0.12);
+                // Second tone (higher, slight delay)
+                const o2 = audioCtx.createOscillator();
+                o2.type = 'sine';
+                o2.frequency.setValueAtTime(1319, t + 0.07);  // E6
+                o2.connect(gain);
+                o2.start(t + 0.07);
+                o2.stop(t + 0.25);
                 return;
             }
-            if (!audioCtx) return;
             // Synthesized shield block sound
             if (name === 'shieldBlock') {
                 const osc = audioCtx.createOscillator();
