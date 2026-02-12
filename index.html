@@ -754,10 +754,12 @@
 
                 // Only first spawn per tick can be drainer/powerup (rest are coins)
                 if (s === 0) {
-                    // Drainer logic - starts at 15%, ramps to 35% over ~90s
+                    // Drainer logic - 5% for first 15 coins, then ramps 15%→35% over ~90s
                     const gameTimeSec = gameState.gameTime / 1000;
                     if (gameState.drainersEnabled) {
-                        const drainerProb = Math.min(0.35, 0.15 + (gameTimeSec / 90) * 0.20);
+                        const drainerProb = gameState.coinsCollected < 15
+                            ? 0.05
+                            : Math.min(0.35, 0.15 + (gameTimeSec / 90) * 0.20);
                         if (Math.random() < drainerProb) {
                             type = 'drainer';
                         }
