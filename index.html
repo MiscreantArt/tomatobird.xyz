@@ -363,7 +363,7 @@
             JUMP_FORCE: -20,
             GAME_AREA_RATIO: 0.9,  // Top 90% is game area  
             HOLD_ZONE_RATIO: 0.1,  // Bottom 10% is hold zone
-            GROUND_Y_RATIO: 0.81,  // Owl feet on black line (adjusted for 90% background)
+            GROUND_Y_RATIO: 0.75,  // Owl feet on black line, raised up
             PLAYER_X_RATIO: 0.3,   // Player at 30% from left
             WALK_SPEED_MULTIPLIER: 1,  // Direct speed when walking (applied to base walk speed)
             IDLE_SPEED: 0,  // No scroll when idle — owl only moves when you hold
@@ -416,7 +416,7 @@
 
         // Get player size (larger than before - 2.1x scale like original)
         function getPlayerSize() {
-            return Math.min(canvas.height * 0.11, 110);  // Smaller — more room to dodge
+            return Math.min(canvas.height * 0.13, 120);  // Bigger owl
         }
 
         // ==========================================
