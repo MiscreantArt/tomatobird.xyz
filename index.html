@@ -151,9 +151,9 @@
         const imagesToLoad = {
             background: 'Background.png',
             title: 'Title.jpg',
-            ethCoin: 'Eth Coin.png',
+            ethCoin: 'EthCoin.png',
             drainer: 'Drainer.png',
-            drainer2: 'Drainer 2.png',
+            drainer2: 'Drainer2.png',
             coinSprite: 'sprites/coin.png',
             cashoutSprite: 'sprites/cashout.png',
             jump1: 'sprites/Jump 1.png',
@@ -952,7 +952,9 @@
                 ctx.fillText(`${gameState.comboMultiplier}X COMBO`, 10, 60);
             }
 
-            // Lives display - owl faces with blue glow in top-right
+            // Lives display - owl faces, no glow/shadow
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
             const livesX = canvas.width - 45;
             const livesY = 45;
             const lifeSize = 65;
@@ -965,14 +967,11 @@
                 if (owlLifeImg && owlLifeImg.complete) {
                     const sw = owlLifeImg.naturalWidth;
                     const sh = owlLifeImg.naturalHeight;
-                    // Crop to face — ears to chest
                     const cropX = sw * 0.05;
                     const cropY = 0;
                     const cropW = sw * 0.9;
                     const cropH = sh * 0.58;
                     const drawH = lifeSize * (cropH / cropW);
-
-                    // Face only — no glow
                     ctx.drawImage(owlLifeImg, cropX, cropY, cropW, cropH, lx, ly, lifeSize, drawH);
                 }
             }
