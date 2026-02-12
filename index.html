@@ -1078,17 +1078,17 @@
                 ctx.textAlign = 'left';
             }
 
-            // Coin rain indicator
-            if (gameState.coinRainTimer > 0) {
-                ctx.fillStyle = '#00ffcc';
-                ctx.font = `bold ${Math.round(canvas.height * 0.025)}px "Press Start 2P"`;
-                ctx.textAlign = 'center';
-                ctx.shadowBlur = 8;
-                ctx.shadowColor = '#00ffcc';
-                ctx.fillText('🌧 COIN RAIN! 🌧', canvas.width / 2, 25);
-                ctx.shadowBlur = 0;
-                ctx.shadowColor = 'transparent';
-                ctx.textAlign = 'left';
+            // Coin rain visual — tiny coins falling from sky
+            if (gameState.coinRainTimer > 0 && assets.images.coinSprite.complete) {
+                const rainSize = 20;
+                const t = Date.now();
+                for (let i = 0; i < 12; i++) {
+                    const rx = ((i * 97 + t * 0.05) % canvas.width);
+                    const ry = ((i * 137 + t * 0.15) % (canvas.height * 0.7));
+                    ctx.globalAlpha = 0.4;
+                    ctx.drawImage(assets.images.coinSprite, rx, ry, rainSize, rainSize);
+                }
+                ctx.globalAlpha = 1;
             }
 
             // Lives display - owl faces, no glow/shadow
@@ -1192,34 +1192,35 @@
             ctx.shadowColor = 'transparent';
 
             // Instructions with game sprites
-            const iconSize = Math.round(s * 2);
-            const startY = s * 5;
-            const lineH = s * 3;
-            const iconX = cx - canvas.width * 0.32;
-            const textX = cx + canvas.width * 0.05;
+            const iconSize = Math.round(s * 2.2);
+            const startY = canvas.height * 0.18;
+            const lineH = canvas.height * 0.09;
+            const iconX = canvas.width * 0.15;
+            const textX = canvas.width * 0.58;
 
             const lines = [
                 { img: null, emoji: '👆', color: '#00ff88', text: 'HOLD to walk' },
-                { img: null, emoji: '🦅', color: '#00ff88', text: 'RELEASE to jump' },
-                { img: assets.images.coin, color: '#ffd700', text: 'Collect ETH coins' },
-                { img: assets.images.drainer, color: '#ff4444', text: 'Avoid drainers!' },
-                { img: null, emoji: '🛡️', color: '#ffd700', text: 'Shield blocks 1 hit' },
-                { img: null, emoji: '🧲', color: '#ff4444', text: 'Magnet pulls coins' },
-                { img: assets.images.look1, color: '#ff6688', text: '3 lives — don\'t get rugged!' },
+                { img: null, emoji: '✋', color: '#00ff88', text: 'RELEASE to jump' },
+                { img: assets.images.coinSprite, color: '#ffd700', text: 'Collect coins' },
+                { img: assets.images.drainer, color: '#ff4444', text: 'Avoid drainers' },
+                { img: null, emoji: '🛡️', color: '#ffd700', text: 'Shield = armor' },
+                { img: null, emoji: '🧲', color: '#ff6600', text: 'Magnet = coins' },
+                { img: null, emoji: '🌧️', color: '#00ffcc', text: 'Rain = jackpot' },
+                { img: assets.images.look1, color: '#ff6688', text: '3 lives. Go!' },
             ];
 
             lines.forEach((line, i) => {
                 const y = startY + i * lineH;
                 // Draw sprite or emoji
                 if (line.img && line.img.complete) {
-                    ctx.drawImage(line.img, iconX - iconSize/2, y - iconSize * 0.7, iconSize, iconSize);
+                    ctx.drawImage(line.img, iconX - iconSize/2, y - iconSize * 0.6, iconSize, iconSize);
                 } else if (line.emoji) {
-                    ctx.font = `${Math.round(s * 1.3)}px sans-serif`;
+                    ctx.font = `${Math.round(iconSize * 0.8)}px sans-serif`;
                     ctx.textAlign = 'center';
-                    ctx.fillText(line.emoji, iconX, y);
+                    ctx.fillText(line.emoji, iconX, y + iconSize * 0.15);
                 }
                 // Text
-                ctx.font = `${Math.round(s * 0.8)}px "Press Start 2P"`;
+                ctx.font = `${Math.round(s * 0.85)}px "Press Start 2P"`;
                 ctx.textAlign = 'center';
                 ctx.fillStyle = line.color;
                 ctx.fillText(line.text, textX, y);
