@@ -306,6 +306,7 @@
             comboMultiplier: 1,
             shieldCount: 0,  // 0=none, 1=single shield, 2=double shield
             invincibleTimer: 0,  // i-frames after taking damage (ms)
+            coinRainTimer: 0,  // coin rain powerup duration (ms)
             magnet: false,
             magnetTimer: 0,
             bgScroll: 0,
@@ -568,6 +569,16 @@
                         ctx.textAlign = 'center';
                         ctx.fillText('🧲', drawX, drawY + this.height/2 + 8);
                         break;
+                    case 'coinRain':
+                        ctx.fillStyle = '#00ffcc';
+                        ctx.beginPath();
+                        ctx.arc(drawX, drawY + this.height/2, this.width/2, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.fillStyle = '#fff';
+                        ctx.font = '20px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('🌧', drawX, drawY + this.height/2 + 8);
+                        break;
                 }
 
                 ctx.restore();
@@ -611,6 +622,7 @@
             gameState.comboMultiplier = 1;
             gameState.shieldCount = 0;
             gameState.invincibleTimer = 0;
+            gameState.coinRainTimer = 0;
             gameState.speedBoost = false;
             gameState.speedBoostTimer = 0;
             gameState.bgScroll = 0;
@@ -645,35 +657,46 @@
 
             gameState.lastSpawnTime = now;
 
-            // THREE Y positions: ground, lower air, upper air
-            const rand = Math.random();
-            const heightType = rand < 0.35 ? 'ground' : (rand < 0.7 ? 'lower' : 'upper');
+            // Coin rain mode: spawn extra coins
+            const spawnCount = gameState.coinRainTimer > 0 ? 4 : 2;  // 2 base, 4 during rain
 
-            let type = 'coin';
+            for (let s = 0; s < spawnCount; s++) {
+                // THREE Y positions: ground, lower air, upper air
+                const rand = Math.random();
+                const heightType = rand < 0.35 ? 'ground' : (rand < 0.7 ? 'lower' : 'upper');
 
-            // Drainer logic - time-based gradual ramp
-            // Starts at 0% at 15s, reaches ~5% at 30s, ~12% at 60s, caps at 25% around 2min+
-            const gameTimeSec = gameState.gameTime / 1000;
-            if (gameTimeSec > 15 && gameState.drainersEnabled) {
-                const drainerProb = Math.min(0.25, ((gameTimeSec - 15) * (gameTimeSec - 15)) / 40000);
-                if (Math.random() < drainerProb) {
-                    type = 'drainer';
+                let type = 'coin';
+
+                // Only first spawn per tick can be drainer/powerup (rest are coins)
+                if (s === 0) {
+                    // Drainer logic - time-based gradual ramp
+                    const gameTimeSec = gameState.gameTime / 1000;
+                    if (gameTimeSec > 15 && gameState.drainersEnabled) {
+                        const drainerProb = Math.min(0.25, ((gameTimeSec - 15) * (gameTimeSec - 15)) / 40000);
+                        if (Math.random() < drainerProb) {
+                            type = 'drainer';
+                        }
+                    }
+
+                    // Powerup logic - more frequent now
+                    const powerupChance = Math.min(0.18, 0.08 + gameTimeSec / 400);
+                    if (type === 'coin' && Math.random() < powerupChance) {
+                        const r = Math.random();
+                        if (r < 0.35) type = 'shield';
+                        else if (r < 0.7) type = 'magnet';
+                        else type = 'coinRain';
+                    }
                 }
-            }
 
-            // Powerup logic - scales up with difficulty to keep it fair
-            const powerupChance = Math.min(0.12, 0.04 + gameTimeSec / 500);
-            if (type === 'coin' && Math.random() < powerupChance) {
-                type = Math.random() < 0.5 ? 'shield' : 'magnet';
-            }
-
-            // Check for overlap with existing objects near spawn point
-            const newObj = new GameObject(type, heightType, canvas.width + 100);
-            const overlaps = gameState.objects.some(obj =>
-                Math.abs(obj.x - newObj.x) < 60 && Math.abs(obj.y - newObj.y) < 60
-            );
-            if (!overlaps && gameState.objects.length < 15) {
-                gameState.objects.push(newObj);
+                // Check for overlap with existing objects near spawn point
+                const xOffset = canvas.width + 100 + s * 80;  // stagger spawns
+                const newObj = new GameObject(type, heightType, xOffset);
+                const overlaps = gameState.objects.some(obj =>
+                    Math.abs(obj.x - newObj.x) < 50 && Math.abs(obj.y - newObj.y) < 50
+                );
+                if (!overlaps && gameState.objects.length < 25) {
+                    gameState.objects.push(newObj);
+                }
             }
         }
 
@@ -782,6 +805,11 @@
             if (gameState.invincibleTimer > 0) {
                 gameState.invincibleTimer -= deltaTime;
             }
+
+            // Update coin rain timer
+            if (gameState.coinRainTimer > 0) {
+                gameState.coinRainTimer -= deltaTime;
+            }
         }
 
         function checkCollisions() {
@@ -863,6 +891,11 @@
                         case 'magnet':
                             gameState.magnet = true;
                             gameState.magnetTimer = 4000;
+                            playSound('coin');
+                            break;
+
+                        case 'coinRain':
+                            gameState.coinRainTimer = 5000;  // 5 seconds of coin rain
                             playSound('coin');
                             break;
                     }
@@ -1042,6 +1075,19 @@
                 ctx.font = `bold ${Math.round(canvas.height * 0.04)}px monospace`;
                 ctx.textAlign = 'center';
                 ctx.fillText(gameState.closeCallMessage, canvas.width / 2, canvas.height * 0.4);
+                ctx.textAlign = 'left';
+            }
+
+            // Coin rain indicator
+            if (gameState.coinRainTimer > 0) {
+                ctx.fillStyle = '#00ffcc';
+                ctx.font = `bold ${Math.round(canvas.height * 0.025)}px "Press Start 2P"`;
+                ctx.textAlign = 'center';
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = '#00ffcc';
+                ctx.fillText('🌧 COIN RAIN! 🌧', canvas.width / 2, 25);
+                ctx.shadowBlur = 0;
+                ctx.shadowColor = 'transparent';
                 ctx.textAlign = 'left';
             }
 
