@@ -239,7 +239,6 @@
         let audioEnabled = false;
         let musicStarted = false;
         let audioCtx = null;
-        let audioReady = false;
         const audioBuffers = {};
         const audioRawData = {};
 
@@ -280,7 +279,6 @@
             }
             // Check if all sounds are decoded
             const allDecoded = Object.keys(soundFiles).every(n => audioBuffers[n]);
-            if (allDecoded) audioReady = true;
         }
 
         function playSound(name) {
