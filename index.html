@@ -1264,26 +1264,32 @@
 
             // Instructions with game sprites
             const iconSize = Math.round(s * 2.2);
-            const startY = canvas.height * 0.18;
-            const lineH = canvas.height * 0.09;
+            const startY = canvas.height * 0.14;
+            const lineH = canvas.height * 0.085;
             const iconX = canvas.width * 0.15;
             const textX = canvas.width * 0.58;
 
             const lines = [
                 { img: null, emoji: '👆', color: '#00ff88', text: 'HOLD to walk' },
                 { img: null, emoji: '✋', color: '#00ff88', text: 'RELEASE to jump' },
-                { img: assets.images.coinSprite, color: '#ffd700', text: 'Collect coins' },
-                { img: assets.images.drainer, color: '#ff4444', text: 'Avoid drainers' },
-                { img: null, emoji: '🛡️', color: '#ffd700', text: 'Shield = armor' },
-                { img: null, emoji: '🧲', color: '#ff6600', text: 'Magnet = coins' },
-                { img: null, emoji: '🌧️', color: '#00ffcc', text: 'Rain = jackpot' },
-                { img: assets.images.look1, color: '#ff6688', text: '3 lives. Go!' },
+                { img: assets.images.coinSprite, color: '#ffd700', text: 'Collect ETH' },
+                { img: assets.images.drainer, color: '#ff4444', text: 'Dodge drainers' },
+                { img: null, emoji: '🛡️', color: '#ffd700', text: 'Shield blocks' },
+                { img: null, emoji: '🧲', color: '#ff6600', text: 'Magnet pulls' },
+                { img: null, emoji: '🌧️', color: '#00ffcc', text: 'Coin rain!' },
+                { img: 'owlHead', color: '#ff6688', text: '3 lives. Go!' },
             ];
 
             lines.forEach((line, i) => {
                 const y = startY + i * lineH;
-                // Draw sprite or emoji
-                if (line.img && line.img.complete) {
+                // Draw sprite or emoji — owl head uses cropped look1
+                if (line.img === 'owlHead' && assets.images.look1.complete) {
+                    // Crop top half of owl sprite (the head)
+                    const src = assets.images.look1;
+                    const cropH = src.height * 0.55;
+                    ctx.drawImage(src, 0, 0, src.width, cropH,
+                        iconX - iconSize/2, y - iconSize * 0.5, iconSize, iconSize * 0.55);
+                } else if (line.img && line.img.complete) {
                     ctx.drawImage(line.img, iconX - iconSize/2, y - iconSize * 0.6, iconSize, iconSize);
                 } else if (line.emoji) {
                     ctx.font = `${Math.round(iconSize * 0.8)}px sans-serif`;
@@ -1297,14 +1303,14 @@
                 ctx.fillText(line.text, textX, y);
             });
 
-            // Tap to start
+            // Tap to start — raised higher
             ctx.fillStyle = '#0ff';
             ctx.font = `${Math.round(s)}px "Press Start 2P"`;
             ctx.shadowBlur = 8;
             ctx.shadowColor = '#0ff';
             const pulseAlpha = 0.5 + 0.5 * Math.sin(Date.now() / 300);
             ctx.globalAlpha = pulseAlpha;
-            ctx.fillText('TAP TO START', cx, canvas.height - s * 3);
+            ctx.fillText('TAP TO START', cx, canvas.height - s * 4.5);
             ctx.globalAlpha = 1;
             ctx.shadowBlur = 0;
         }
