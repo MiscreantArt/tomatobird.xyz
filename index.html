@@ -1308,10 +1308,10 @@
                     const sw = src.naturalWidth, sh = src.naturalHeight;
                     const cropX = sw * 0.05, cropY = 0;
                     const cropW = sw * 0.9, cropH = sh * 0.58;
-                    const headSize = iconSize * 1.85;
+                    const headSize = iconSize * 2.2;
                     const drawH = headSize * (cropH / cropW);
                     ctx.drawImage(src, cropX, cropY, cropW, cropH,
-                        iconX - headSize/2, y - drawH * 0.75, headSize, drawH);
+                        iconX - headSize/2, y - drawH * 0.85, headSize, drawH);
                 } else if (line.img && line.img.complete) {
                     ctx.drawImage(line.img, iconX - iconSize/2, y - iconSize * 0.6, iconSize, iconSize);
                 } else if (line.emoji) {
