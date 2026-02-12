@@ -265,7 +265,23 @@
         }
 
         function playSound(name) {
-            if (!audioEnabled || !audioCtx || !audioBuffers[name]) return;
+            if (!audioEnabled || !audioCtx) return;
+            // Synthesized shield block sound
+            if (name === 'shieldBlock') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(audioCtx.currentTime);
+                osc.stop(audioCtx.currentTime + 0.2);
+                return;
+            }
+            if (!audioBuffers[name]) return;
             const source = audioCtx.createBufferSource();
             source.buffer = audioBuffers[name];
             source.connect(audioCtx.destination);
@@ -688,6 +704,8 @@
             gameState.shieldCount = 0;
             gameState.invincibleTimer = 0;
             gameState.coinRainTimer = 0;
+            gameState.magnet = false;
+            gameState.magnetTimer = 0;
             gameState.speedBoost = false;
             gameState.speedBoostTimer = 0;
             gameState.bgScroll = 0;
@@ -736,10 +754,10 @@
 
                 // Only first spawn per tick can be drainer/powerup (rest are coins)
                 if (s === 0) {
-                    // Drainer logic - starts at 10%, ramps to 30% over ~2min
+                    // Drainer logic - starts at 15%, ramps to 35% over ~90s
                     const gameTimeSec = gameState.gameTime / 1000;
                     if (gameState.drainersEnabled) {
-                        const drainerProb = Math.min(0.30, 0.10 + (gameTimeSec / 120) * 0.20);
+                        const drainerProb = Math.min(0.35, 0.15 + (gameTimeSec / 90) * 0.20);
                         if (Math.random() < drainerProb) {
                             type = 'drainer';
                         }
@@ -929,7 +947,7 @@
                             }
                             if (gameState.shieldCount > 0) {
                                 gameState.shieldCount--;
-                                playSound('coin');
+                                playSound('shieldBlock');
                             } else {
                                 // Lose a life
                                 gameState.lives--;
