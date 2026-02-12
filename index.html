@@ -239,6 +239,7 @@
         let audioEnabled = false;
         let musicStarted = false;
         let audioCtx = null;
+        let audioReady = false;
         const audioBuffers = {};
         const audioRawData = {};
 
@@ -277,6 +278,9 @@
                     }
                 }
             }
+            // Check if all sounds are decoded
+            const allDecoded = Object.keys(soundFiles).every(n => audioBuffers[n]);
+            if (allDecoded) audioReady = true;
         }
 
         function playSound(name) {
@@ -833,9 +837,9 @@
                 const rainCount = 4;  // 4 rain coins per spawn tick
                 for (let r = 0; r < rainCount; r++) {
                     const rainCoin = new GameObject('coin', 'upper', 0);
-                    // Spread across right 60% of screen, staggered heights
-                    rainCoin.x = canvas.width * 0.4 + Math.random() * canvas.width * 0.6;
-                    rainCoin.y = -20 - Math.random() * 80;
+                    // Spawn off-screen right so player runs into the rain
+                    rainCoin.x = canvas.width + Math.random() * canvas.width * 0.5;
+                    rainCoin.y = -20 - Math.random() * 100;
                     rainCoin.falling = true;
                     rainCoin.fallSpeed = 8 + Math.random() * 5;  // fast rain
                     if (gameState.objects.length < 35) {
@@ -1271,16 +1275,21 @@
                 ctx.drawImage(owlFrame, owlX, owlY, owlSize, owlSize);
             }
 
-            // Tap to start below owl
-            ctx.fillStyle = '#0ff';
+            // Tap to start below owl — only show when audio is ready
             ctx.font = '16px "Press Start 2P"';
             ctx.textAlign = 'center';
             ctx.shadowBlur = 0;
             ctx.shadowColor = 'transparent';
-            const pulseA = 0.5 + 0.5 * Math.sin(Date.now() / 300);
-            ctx.globalAlpha = pulseA;
-            ctx.fillText('TAP TO START', canvas.width / 2, canvas.height * 0.68);
-            ctx.globalAlpha = 1;
+            if (audioReady) {
+                ctx.fillStyle = '#0ff';
+                const pulseA = 0.5 + 0.5 * Math.sin(Date.now() / 300);
+                ctx.globalAlpha = pulseA;
+                ctx.fillText('TAP TO START', canvas.width / 2, canvas.height * 0.68);
+                ctx.globalAlpha = 1;
+            } else {
+                ctx.fillStyle = '#666';
+                ctx.fillText('LOADING...', canvas.width / 2, canvas.height * 0.68);
+            }
 
             // How to play button (left side of bottom)
             ctx.fillStyle = '#00ff88';
@@ -1670,6 +1679,8 @@
                         currentState = GAME_STATE.HOW_TO_PLAY;
                     } else if (y > canvas.height * 0.7 && x >= canvas.width * 0.5) {
                         currentState = GAME_STATE.HIGH_SCORES;
+                    } else if (!audioReady) {
+                        // Still loading sounds
                     } else if (!localStorage.getItem('etherDashTutorialSeen')) {
                         currentState = GAME_STATE.HOW_TO_PLAY;
                     } else {
@@ -1752,6 +1763,8 @@
                         currentState = GAME_STATE.HOW_TO_PLAY;
                     } else if (y > canvas.height * 0.7 && x >= canvas.width * 0.5) {
                         currentState = GAME_STATE.HIGH_SCORES;
+                    } else if (!audioReady) {
+                        // Still loading sounds
                     } else if (!localStorage.getItem('etherDashTutorialSeen')) {
                         currentState = GAME_STATE.HOW_TO_PLAY;
                     } else {
