@@ -517,8 +517,10 @@
                 this.heightType = heightType;
                 this.x = x;
                 this.y = this.getYPosition(heightType);
-                this.width = 42;
-                this.height = 42;
+                // Drainers are 5% bigger than coins
+                const sz = (type === 'drainer') ? 44 : 42;
+                this.width = sz;
+                this.height = sz;
                 this.collected = false;
                 this.pulseTime = 0;
                 this.bobOffset = 0;
@@ -579,10 +581,7 @@
                     }
                 }
 
-                // Big drainer moves slower
-                if (this.type === 'drainer' && this.width > 50) {
-                    this.x += speed * 0.3;  // Give back 30% of speed (net = 70%)
-                }
+                // (all drainers same size now)
             }
 
             draw() {
@@ -610,10 +609,8 @@
                         break;
                     case 'drainer':
                         // Big drainers use drainer2 sprite
-                        const drainerImg = (this.width > 50 && assets.images.drainer2.complete)
-                            ? assets.images.drainer2 : assets.images.drainer;
-                        if (drainerImg.complete) {
-                            ctx.drawImage(drainerImg, drawX - this.width/2, drawY, this.width, this.height);
+                        if (assets.images.drainer.complete) {
+                            ctx.drawImage(assets.images.drainer, drawX - this.width/2, drawY, this.width, this.height);
                         }
                         break;
                     case 'extraLife':
@@ -779,11 +776,6 @@
                 const xOffset = canvas.width + 100 + s * 80;  // stagger spawns
                 const newObj = new GameObject(type, heightType, xOffset);
 
-                // Big drainer — 30% of drainers are big
-                if (type === 'drainer' && Math.random() < 0.3) {
-                    newObj.width = 70;
-                    newObj.height = 70;
-                }
                 const overlaps = gameState.objects.some(obj =>
                     Math.abs(obj.x - newObj.x) < 50 && Math.abs(obj.y - newObj.y) < 50
                 );
@@ -792,15 +784,16 @@
                 }
             }
 
-            // Coin rain: spawn falling coins from the top of the screen
+            // Coin rain: fast coins pouring from top-right
             if (gameState.coinRainTimer > 0) {
-                const rainCount = 2;  // 2 rain coins per spawn tick
+                const rainCount = 3;  // 3 rain coins per spawn tick
                 for (let r = 0; r < rainCount; r++) {
                     const rainCoin = new GameObject('coin', 'upper', 0);
-                    rainCoin.x = Math.random() * canvas.width * 0.8 + canvas.width * 0.1;
-                    rainCoin.y = -20 - Math.random() * 40;
+                    // Spawn from top-right quadrant so player runs into them
+                    rainCoin.x = canvas.width * 0.5 + Math.random() * canvas.width * 0.5;
+                    rainCoin.y = -20 - Math.random() * 60;
                     rainCoin.falling = true;
-                    rainCoin.fallSpeed = 3 + Math.random() * 2;
+                    rainCoin.fallSpeed = 6 + Math.random() * 4;  // much faster
                     if (gameState.objects.length < 35) {
                         gameState.objects.push(rainCoin);
                     }
@@ -1543,10 +1536,16 @@
                     gameState.objects.forEach(obj => obj.draw());
                     drawPlayer();
 
-                    // Last life intensity - red tint with pulse
+                    // Last life intensity - subtle red vignette pulse
                     if (gameState.lives === 1) {
-                        const pulseAlpha = 0.15 + 0.08 * Math.sin(Date.now() / 300);
-                        ctx.fillStyle = `rgba(255, 0, 0, ${pulseAlpha})`;
+                        const pulseAlpha = 0.06 + 0.04 * Math.sin(Date.now() / 400);
+                        const vGrad = ctx.createRadialGradient(
+                            canvas.width/2, canvas.height * PHYSICS.GAME_AREA_RATIO / 2, canvas.width * 0.3,
+                            canvas.width/2, canvas.height * PHYSICS.GAME_AREA_RATIO / 2, canvas.width * 0.8
+                        );
+                        vGrad.addColorStop(0, 'rgba(255, 0, 0, 0)');
+                        vGrad.addColorStop(1, `rgba(255, 0, 0, ${pulseAlpha})`);
+                        ctx.fillStyle = vGrad;
                         ctx.fillRect(0, 0, canvas.width, canvas.height * PHYSICS.GAME_AREA_RATIO);
                     }
 
