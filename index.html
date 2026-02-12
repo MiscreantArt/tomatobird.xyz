@@ -1280,16 +1280,11 @@
             ctx.textAlign = 'center';
             ctx.shadowBlur = 0;
             ctx.shadowColor = 'transparent';
-            if (audioReady) {
-                ctx.fillStyle = '#0ff';
-                const pulseA = 0.5 + 0.5 * Math.sin(Date.now() / 300);
-                ctx.globalAlpha = pulseA;
-                ctx.fillText('TAP TO START', canvas.width / 2, canvas.height * 0.68);
-                ctx.globalAlpha = 1;
-            } else {
-                ctx.fillStyle = '#666';
-                ctx.fillText('LOADING...', canvas.width / 2, canvas.height * 0.68);
-            }
+            ctx.fillStyle = '#0ff';
+            const pulseA = 0.5 + 0.5 * Math.sin(Date.now() / 300);
+            ctx.globalAlpha = pulseA;
+            ctx.fillText('TAP TO START', canvas.width / 2, canvas.height * 0.68);
+            ctx.globalAlpha = 1;
 
             // How to play button (left side of bottom)
             ctx.fillStyle = '#00ff88';
@@ -1679,8 +1674,6 @@
                         currentState = GAME_STATE.HOW_TO_PLAY;
                     } else if (y > canvas.height * 0.7 && x >= canvas.width * 0.5) {
                         currentState = GAME_STATE.HIGH_SCORES;
-                    } else if (!audioReady) {
-                        // Still loading sounds
                     } else if (!localStorage.getItem('etherDashTutorialSeen')) {
                         currentState = GAME_STATE.HOW_TO_PLAY;
                     } else {
@@ -1763,8 +1756,6 @@
                         currentState = GAME_STATE.HOW_TO_PLAY;
                     } else if (y > canvas.height * 0.7 && x >= canvas.width * 0.5) {
                         currentState = GAME_STATE.HIGH_SCORES;
-                    } else if (!audioReady) {
-                        // Still loading sounds
                     } else if (!localStorage.getItem('etherDashTutorialSeen')) {
                         currentState = GAME_STATE.HOW_TO_PLAY;
                     } else {
