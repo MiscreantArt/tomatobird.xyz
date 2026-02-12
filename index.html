@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-fullscreen">
+    <title>Ether Dash</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Press Start 2P', cursive;
+            background: #000;
+            overflow: hidden;
+            touch-action: none;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+        }
+
+        #gameContainer {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #000;
+        }
+
+        canvas {
+            display: block;
+            background: #1a0033;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+
+        #loadingScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #0ff;
+            font-size: 12px;
+            z-index: 1000;
+        }
+
+        .loading-text {
+            margin-top: 20px;
+        }
+
+        .loading-bar {
+            width: 200px;
+            height: 20px;
+            border: 2px solid #0ff;
+            margin-top: 10px;
+            position: relative;
+        }
+
+        .loading-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #0ff, #f0f);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .glow {
+            text-shadow: 0 0 10px #0ff, 0 0 20px #0ff, 0 0 30px #0ff;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+    <div id="loadingScreen">
+        <div class="glow" style="font-size: 20px;">ETHER DASH</div>
+        <div class="loading-text">Loading...</div>
+        <div class="loading-bar">
+            <div class="loading-fill" id="loadingFill"></div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // ETHER DASH - Mobile Runner Game
+        // ==========================================
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const loadingFill = document.getElementById('loadingFill');
+
+        // Canvas setup for portrait mobile
+        function resizeCanvas() {
+            const aspectRatio = 9 / 16;
+            const windowWidth = window.innerWidth;
+            const windowHeight = window.innerHeight;
+
+            if (windowWidth / windowHeight > aspectRatio) {
+                canvas.height = windowHeight;
+                canvas.width = windowHeight * aspectRatio;
+            } else {
+                canvas.width = windowWidth;
+                canvas.height = windowWidth / aspectRatio;
+            }
+        }
+
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // ==========================================
+        // GAME STATE
+        // ==========================================
+
+        const GAME_STATE = {
+            LOADING: 'loading',
+            TITLE: 'title',
+            PLAYING: 'playing',
+            GAME_OVER: 'gameOver',
+            HIGH_SCORES: 'highScores',
+            ENTER_INITIALS: 'enterInitials'
+        };
+
+        let currentState = GAME_STATE.LOADING;
+
+        // ==========================================
+        // ASSET LOADING
+        // ==========================================
+
+        const assets = {
+            images: {},
+            audio: {},
+            loaded: 0,
+            total: 0
+        };
+
+        const imagesToLoad = {
+            background: 'Background.png',
+            title: 'Title.jpg',
+            ethCoin: 'Eth Coin.png',
+            drainer: 'Drainer.png',
+            drainer2: 'Drainer 2.png',
+            coinSprite: 'sprites/coin.png',
+            cashoutSprite: 'sprites/cashout.png',
+            jump1: 'sprites/Jump 1.png',
+            jump2: 'sprites/Jump 2.png',
+            jump3: 'sprites/Jump 3.png',
+            jump4: 'sprites/Jump 4.png',
+            jump5: 'sprites/Jump 5.png',
+            jump6: 'sprites/Jump 6.png',
+            walk1: 'sprites/walk_1.png',
+            walk2: 'sprites/walk_2.png',
+            walk3: 'sprites/walk_3.png',
+            walk4: 'sprites/walk_4.png',
+            walk5: 'sprites/walk_5.png',
+            walk6: 'sprites/walk_6.png',
+            look1: 'sprites/look_1.png'
+        };
+
+        const audioToLoad = {
+            coin: 'audio/Coin.mp3',
+            drain: 'audio/Drain.mp3',
+            jump: 'audio/Jump.mp3',
+            money: 'audio/Money.mp3',
+            bgMusic: 'audio/Ether M1.mp3',
+            hiScoreMusic: 'audio/HiS.mp3',
+            textSound: 'audio/Text.mp3'
+        };
+
+        assets.total = Object.keys(imagesToLoad).length + Object.keys(audioToLoad).length;
+
+        function updateLoadingBar() {
+            const percent = (assets.loaded / assets.total) * 100;
+            loadingFill.style.width = percent + '%';
+
+            if (assets.loaded === assets.total) {
+                
+                setTimeout(() => {
+                    document.getElementById('loadingScreen').style.display = 'none';
+                    currentState = GAME_STATE.TITLE;
+                }, 500);
+            }
+        }
+
+        // Load images
+        Object.keys(imagesToLoad).forEach(key => {
+            const img = new Image();
+            img.onload = () => {
+                assets.loaded++;
+                updateLoadingBar();
+            };
+            img.onerror = () => {
+                console.warn(`Failed to load image: ${imagesToLoad[key]}`);
+                assets.loaded++;
+                updateLoadingBar();
+            };
+            img.src = imagesToLoad[key];
+            assets.images[key] = img;
+        });
+
+        // Load audio
+        Object.keys(audioToLoad).forEach(key => {
+            const audio = new Audio();
+            audio.oncanplaythrough = () => {
+                assets.loaded++;
+                updateLoadingBar();
+            };
+            audio.onerror = () => {
+                console.warn(`Failed to load audio: ${audioToLoad[key]}`);
+                assets.loaded++;
+                updateLoadingBar();
+            };
+            audio.src = audioToLoad[key];
+            audio.load();
+            assets.audio[key] = audio;
+        });
+
+        // Audio system - Web Audio API for sound effects
+        let audioEnabled = false;
+        let musicStarted = false;
+        let audioCtx = null;
+        const audioBuffers = {};
+
+        async function initAudio() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const sounds = {
+                jump: 'audio/Jump.mp3',
+                coin: 'audio/Coin.mp3',
+                drain: 'audio/Drain.mp3',
+                money: 'audio/Money.mp3',
+                textSound: 'audio/Text.mp3'
+            };
+            for (const [name, url] of Object.entries(sounds)) {
+                try {
+                    const response = await fetch(url);
+                    const arrayBuffer = await response.arrayBuffer();
+                    audioBuffers[name] = await audioCtx.decodeAudioData(arrayBuffer);
+                } catch(e) {
+                    console.warn('Failed to load sound:', name);
+                }
+            }
+        }
+
+        function playSound(name) {
+            if (!audioEnabled || !audioCtx || !audioBuffers[name]) return;
+            const source = audioCtx.createBufferSource();
+            source.buffer = audioBuffers[name];
+            source.connect(audioCtx.destination);
+            source.start(0);
+        }
+
+        function startMusic() {
+            if (!audioEnabled || musicStarted) return;
+            const music = assets.audio.bgMusic;
+            if (music) {
+                music.loop = true;
+                music.volume = 0.5;
+                music.play().catch(e => console.warn('Music play failed:', e));
+                musicStarted = true;
+            }
+        }
+
+        function enableAudio() {
+            audioEnabled = true;
+            initAudio();
+        }
+
+        // ==========================================
+        // GAME VARIABLES
+        // ==========================================
+
+        // Physics constants - matching iOS original
+        const PHYSICS = {
+            GRAVITY: 0.9,
+            JUMP_FORCE: -20,
+            GAME_AREA_RATIO: 0.8,  // Top 80% is game area
+            HOLD_ZONE_RATIO: 0.2,  // Bottom 20% is hold zone
+            GROUND_Y_RATIO: 0.72,  // Owl feet on the black line above the railing
+            PLAYER_X_RATIO: 0.3,   // Player at 30% from left
+            WALK_SPEED_MULTIPLIER: 1,  // Direct speed when walking (applied to base walk speed)
+            IDLE_SPEED: 0,  // No scroll when idle — owl only moves when you hold
+            JUMP_SPEED_MULTIPLIER: 1.0  // Same speed as running
+        };
+
+        let gameState = {
+            score: 0,
+            coinsCollected: 0,  // Track coins separately from score
+            lives: 3,  // Lives system
+            combo: 0,
+            comboMultiplier: 1,
+            hasShield: false,
+            magnet: false,
+            magnetTimer: 0,
+            bgScroll: 0,
+            bgSpeed: PHYSICS.IDLE_SPEED,
+            playerY: 0,  // Actual Y position
+            playerVelocityY: 0,  // Vertical velocity
+            playerX: 0,  // Fixed X position (30% from left)
+            grounded: true,
+            isHolding: false,  // CRITICAL: track if player is holding
+            isWalking: false,  // Track walking state
+            playerAnimFrame: 0,
+            playerAnimTimer: 0,
+            walkAnimSpeed: 0.07,  // timePerFrame for walk
+            jumpAnimSpeed: 0.1,   // timePerFrame for jump
+            objects: [],
+            particles: [],
+            screenShake: 0,
+            lastSpawnTime: 0,
+            spawnInterval: 650,  // Faster spawn start
+            gameTime: 0,
+            drainersEnabled: false,
+            highScores: [],
+            lastDrainerX: -1000,
+            milestoneReached: 0,
+            newHighScoreIndex: -1,  // For highlighting new score
+            compromiseMessage: '',  // Current compromise message
+            compromiseMessageLife: 0  // Life timer for message
+        };
+
+        // Get ground level Y position
+        function getGroundY() {
+            return canvas.height * PHYSICS.GROUND_Y_RATIO;
+        }
+
+        // Get player size (larger than before - 2.1x scale like original)
+        function getPlayerSize() {
+            return Math.min(canvas.height * 0.11, 110);  // Smaller — more room to dodge
+        }
+
+        // ==========================================
+        // HIGH SCORE SYSTEM
+        // ==========================================
+
+        const HIGH_SCORE_COLORS = [
+            '#ff0000',  // red
+            '#00ff00',  // green
+            '#ffff00',  // yellow
+            '#0000ff',  // blue
+            '#00ffff',  // cyan
+            '#ff00ff',  // magenta
+            '#ff8800',  // orange
+            '#8800ff',  // purple
+            '#884400',  // brown
+            '#aaaaaa'   // lightGray
+        ];
+
+        function loadHighScores() {
+            const saved = localStorage.getItem('etherDashHighScores');
+            if (saved) {
+                gameState.highScores = JSON.parse(saved);
+            } else {
+                gameState.highScores = [
+                    { initials: 'AAA', score: 100 },
+                    { initials: 'BBB', score: 75 },
+                    { initials: 'CCC', score: 50 },
+                    { initials: 'DDD', score: 30 },
+                    { initials: 'EEE', score: 20 },
+                    { initials: 'FFF', score: 15 },
+                    { initials: 'GGG', score: 10 },
+                    { initials: 'HHH', score: 8 },
+                    { initials: 'III', score: 5 },
+                    { initials: 'JJJ', score: 3 }
+                ];
+            }
+        }
+
+        function saveHighScores() {
+            localStorage.setItem('etherDashHighScores', JSON.stringify(gameState.highScores));
+        }
+
+        function addHighScore(initials, score) {
+            gameState.highScores.push({ initials, score });
+            gameState.highScores.sort((a, b) => b.score - a.score);
+            gameState.highScores = gameState.highScores.slice(0, 10);
+
+            // Find the index of the new score
+            gameState.newHighScoreIndex = gameState.highScores.findIndex(entry =>
+                entry.initials === initials && entry.score === score
+            );
+
+            saveHighScores();
+        }
+
+        function isHighScore(score) {
+            return gameState.highScores.length < 10 || score > gameState.highScores[gameState.highScores.length - 1].score;
+        }
+
+        loadHighScores();
+
+        // ==========================================
+        // INITIALS INPUT SYSTEM
+        // ==========================================
+
+        let initialsInput = {
+            letters: ['A', 'A', 'A'],
+            currentIndex: 0,
+            blinkTimer: 0
+        };
+
+        function cycleInitialLetter(index) {
+            const current = initialsInput.letters[index];
+            const charCode = current.charCodeAt(0);
+            if (charCode >= 90) {  // Z wraps to A
+                initialsInput.letters[index] = 'A';
+            } else {
+                initialsInput.letters[index] = String.fromCharCode(charCode + 1);
+            }
+            playSound('textSound');
+        }
+
+        // Music management
+        function stopMusic() {
+            musicStarted = false;
+            const music = assets.audio.bgMusic;
+            if (music) { music.pause(); music.currentTime = 0; }
+            const hsMusic = assets.audio.hiScoreMusic;
+            if (hsMusic) { hsMusic.pause(); hsMusic.currentTime = 0; }
+        }
+
+        function playHiScoreMusic() {
+            stopMusic();
+            if (!audioEnabled) return;
+            const music = assets.audio.hiScoreMusic;
+            if (music) {
+                music.loop = true;
+                music.volume = 0.5;
+                music.play().catch(() => {});
+            }
+        }
+
+        // ==========================================
+        // GAME OBJECTS
+        // ==========================================
+
+        class GameObject {
+            constructor(type, heightType, x) {
+                this.type = type;
+                this.heightType = heightType;
+                this.x = x;
+                this.y = this.getYPosition(heightType);
+                this.width = 42;
+                this.height = 42;
+                this.collected = false;
+                this.pulseTime = 0;
+                this.bobOffset = 0;
+            }
+
+            getYPosition(heightType) {
+                const groundY = getGroundY();
+                const playerSize = getPlayerSize();
+                if (heightType === 'ground') {
+                    return groundY - playerSize * 0.6;  // Coin at owl body height
+                } else if (heightType === 'lower') {
+                    return groundY - canvas.height * 0.2;  // Low jump
+                } else {  // 'upper'
+                    return groundY - canvas.height * 0.35;  // High jump
+                }
+            }
+
+            update(deltaTime) {
+                let speed = gameState.bgSpeed;
+
+                // Jump moves forward - objects scroll faster when in air
+                if (!gameState.grounded) {
+                    speed *= PHYSICS.JUMP_SPEED_MULTIPLIER;
+                }
+
+                this.x -= speed;
+                this.pulseTime += deltaTime;
+
+                // Bob animation removed for performance
+                this.bobOffset = 0;
+
+                // Magnet pull - only affects coins, not drainers
+                if (gameState.magnet && this.type === 'coin') {
+                    const playerX = gameState.playerX;
+                    const playerY = gameState.playerY;
+                    const dx = playerX - this.x;
+                    const dy = playerY - this.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < 250) {
+                        const pullStrength = 5;
+                        this.x += (dx / distance) * pullStrength;
+                        this.y += (dy / distance) * pullStrength;
+                    }
+                }
+            }
+
+            draw() {
+                ctx.save();
+
+                const drawX = this.x;
+                const drawY = this.y - this.height / 2 + this.bobOffset;
+
+                // Draw based on type (no shadowBlur for performance)
+                switch (this.type) {
+                    case 'coin':
+                        if (assets.images.coinSprite.complete) {
+                            ctx.drawImage(assets.images.coinSprite, drawX - this.width/2, drawY, this.width, this.height);
+                        }
+                        break;
+                    case 'drainer':
+                        if (assets.images.drainer.complete) {
+                            ctx.drawImage(assets.images.drainer, drawX - this.width/2, drawY, this.width, this.height);
+                        }
+                        break;
+                    case 'shield':
+                        ctx.fillStyle = '#ffd700';
+                        ctx.beginPath();
+                        ctx.arc(drawX, drawY + this.height/2, this.width/2, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.fillStyle = '#fff';
+                        ctx.font = '20px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('🛡', drawX, drawY + this.height/2 + 8);
+                        break;
+                    case 'magnet':
+                        ctx.fillStyle = '#ffaa00';
+                        ctx.beginPath();
+                        ctx.arc(drawX, drawY + this.height/2, this.width/2, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.fillStyle = '#fff';
+                        ctx.font = '20px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('🧲', drawX, drawY + this.height/2 + 8);
+                        break;
+                }
+
+                ctx.restore();
+            }
+
+            isOffScreen() {
+                return this.x < -this.width;
+            }
+
+            // Bounding box collision detection
+            collidesWith(x, y, width, height) {
+                // Tighter hitbox — 65% of visual size for precise feel
+                const margin = this.width * 0.175;
+                const objLeft = this.x - this.width / 2 + margin;
+                const objRight = this.x + this.width / 2 - margin;
+                const objTop = this.y - this.height / 2 + margin + this.bobOffset;
+                const objBottom = this.y + this.height / 2 - margin + this.bobOffset;
+
+                const playerLeft = x;
+                const playerRight = x + width;
+                const playerTop = y;
+                const playerBottom = y + height;
+
+                return objLeft < playerRight &&
+                       objRight > playerLeft &&
+                       objTop < playerBottom &&
+                       objBottom > playerTop;
+            }
+        }
+
+
+        // ==========================================
+        // GAME LOGIC
+        // ==========================================
+
+        function resetGame() {
+            gameState.score = 0;
+            gameState.coinsCollected = 0;
+            gameState.lives = 3;
+            gameState.combo = 0;
+            gameState.comboMultiplier = 1;
+            gameState.hasShield = false;
+            gameState.speedBoost = false;
+            gameState.speedBoostTimer = 0;
+            gameState.bgScroll = 0;
+            gameState.bgSpeed = 0;
+            gameState.walkSpeedBonus = 0;
+            gameState.playerY = getGroundY();
+            gameState.playerVelocityY = 0;
+            gameState.playerX = canvas.width * PHYSICS.PLAYER_X_RATIO;
+            gameState.grounded = true;
+            gameState.isHolding = false;
+            gameState.isWalking = false;
+            gameState.objects = [];
+            gameState.floatingTexts = [];
+            gameState.particles = [];
+            gameState.screenShake = 0;
+            gameState.lastSpawnTime = 0;
+            gameState.spawnInterval = 650;
+            gameState.gameTime = 0;
+            gameState.drainersEnabled = false;
+            gameState.milestoneReached = 0;
+            gameState.lastDrainerX = -1000;
+            gameState.newHighScoreIndex = -1;
+            gameState.compromiseMessage = '';
+            gameState.compromiseMessageLife = 0;
+        }
+
+        function spawnObject() {
+            const now = Date.now();
+            if (now - gameState.lastSpawnTime < gameState.spawnInterval) return;
+
+            gameState.lastSpawnTime = now;
+
+            // THREE Y positions: ground, lower air, upper air
+            const rand = Math.random();
+            const heightType = rand < 0.35 ? 'ground' : (rand < 0.7 ? 'lower' : 'upper');
+
+            let type = 'coin';
+
+            // Drainer logic - appears after 10+ COINS collected
+            // Drainers spawn on ground level so you have to JUMP OVER them
+            if (gameState.coinsCollected >= 10 && gameState.drainersEnabled) {
+                const drainerProb = Math.min(0.4, (gameState.coinsCollected - 10) / 80);
+                if (Math.random() < drainerProb) {
+                    type = 'drainer';
+                }
+            }
+
+            // Powerup logic (rare)
+            if (type === 'coin' && Math.random() < 0.05) {
+                type = Math.random() < 0.5 ? 'shield' : 'magnet';
+            }
+
+            // Check for overlap with existing objects near spawn point
+            const newObj = new GameObject(type, heightType, canvas.width + 100);
+            const overlaps = gameState.objects.some(obj =>
+                Math.abs(obj.x - newObj.x) < 60 && Math.abs(obj.y - newObj.y) < 60
+            );
+            if (!overlaps && gameState.objects.length < 8) {
+                gameState.objects.push(newObj);
+            }
+        }
+
+        // CRITICAL: New control system - HOLD to walk, RELEASE to jump
+        function startHolding() {
+            gameState.isHolding = true;
+
+            // If grounded, immediately start walking
+            if (gameState.grounded) {
+                gameState.isWalking = true;
+                gameState.bgSpeed = 7 + (gameState.walkSpeedBonus || 0);  // Faster base speed
+            }
+        }
+
+        function releaseHolding() {
+            gameState.isHolding = false;
+            gameState.isWalking = false;
+
+            // RELEASE = JUMP (only if grounded)
+            if (gameState.grounded) {
+                gameState.playerVelocityY = PHYSICS.JUMP_FORCE;
+                gameState.grounded = false;
+                // Keep moving during jump — maintain walk speed (jump multiplier handled in object update)
+                gameState.bgSpeed = 7 + (gameState.walkSpeedBonus || 0);
+
+                // Play jump sound ONLY when jump actually happens
+                playSound('jump');
+            } else {
+                // Released while in air — stop when landing
+                gameState.bgSpeed = 0;
+            }
+        }
+
+        function updatePhysics(deltaTime) {
+            // Apply gravity
+            gameState.playerVelocityY += PHYSICS.GRAVITY;
+
+            // Update position
+            gameState.playerY += gameState.playerVelocityY;
+
+            // Ground collision
+            const groundY = getGroundY();
+            if (gameState.playerY >= groundY) {
+                gameState.playerY = groundY;
+                gameState.playerVelocityY = 0;
+                gameState.grounded = true;
+
+                // If player is still holding when landing, start walking again
+                if (gameState.isHolding) {
+                    gameState.isWalking = true;
+                    gameState.bgSpeed = 7 + (gameState.walkSpeedBonus || 0);  // Faster base speed
+                } else {
+                    // Idle bounce - no walking
+                    gameState.isWalking = false;
+                    gameState.bgSpeed = 0;
+                }
+            }
+
+            // Don't go above screen
+            if (gameState.playerY < 50) {
+                gameState.playerY = 50;
+                gameState.playerVelocityY = 0;
+            }
+
+            // Background scrolling — faster during jump
+            let scrollSpeed = gameState.bgSpeed;
+            if (!gameState.grounded && scrollSpeed > 0) {
+                scrollSpeed *= PHYSICS.JUMP_SPEED_MULTIPLIER;
+            }
+            gameState.bgScroll += scrollSpeed;
+        }
+
+        function updateGameSpeed(deltaTime) {
+            gameState.gameTime += deltaTime;
+
+            // Increase difficulty every 10 seconds (faster increments)
+            if (Math.floor(gameState.gameTime / 10000) > Math.floor((gameState.gameTime - deltaTime) / 10000)) {
+                gameState.walkSpeedBonus = (gameState.walkSpeedBonus || 0) + 0.4;  // Faster speed increase
+                gameState.spawnInterval = Math.max(400, gameState.spawnInterval - 100);  // Faster spawns, lower min
+            }
+            // Apply walk speed bonus when walking
+            if (gameState.isWalking) {
+                gameState.bgSpeed = 7 + (gameState.walkSpeedBonus || 0);  // Faster base speed
+            }
+
+            // Enable drainers at 10+ coins
+            if (gameState.coinsCollected >= 10) {
+                gameState.drainersEnabled = true;
+            }
+
+            // Visual milestones
+            if (gameState.score >= 200 && gameState.milestoneReached < 3) {
+                gameState.milestoneReached = 3;
+            } else if (gameState.score >= 100 && gameState.milestoneReached < 2) {
+                gameState.milestoneReached = 2;
+            } else if (gameState.score >= 50 && gameState.milestoneReached < 1) {
+                gameState.milestoneReached = 1;
+            }
+
+            // Update compromise message timer
+            if (gameState.compromiseMessageLife > 0) {
+                gameState.compromiseMessageLife -= deltaTime;
+            }
+        }
+
+        function checkCollisions() {
+            const playerX = gameState.playerX;
+            const playerY = gameState.playerY;
+            const playerSize = getPlayerSize();
+
+            gameState.objects.forEach((obj, index) => {
+                if (obj.collected) return;
+
+                // Position-based bounding box collision - playerY is at feet, sprite extends upward
+                // Tighter player hitbox — 70% of sprite
+                const hitMargin = playerSize * 0.15;
+                if (obj.collidesWith(playerX - playerSize/2 + hitMargin, playerY - playerSize + hitMargin, playerSize - hitMargin*2, playerSize - hitMargin*2)) {
+                    obj.collected = true;
+
+                    switch (obj.type) {
+                        case 'coin':
+                            const points = 1 * gameState.comboMultiplier;
+                            gameState.score += points;
+                            gameState.coinsCollected++;
+                            gameState.combo++;
+
+                            // Update combo multiplier
+                            if (gameState.combo >= 6) {
+                                gameState.comboMultiplier = 3;
+                            } else if (gameState.combo >= 3) {
+                                gameState.comboMultiplier = 2;
+                            }
+
+                            // Play coin sound ONLY when collected
+                            playSound('coin');
+                            break;
+
+                        case 'drainer':
+                            if (gameState.hasShield) {
+                                gameState.hasShield = false;
+                                playSound('coin');
+                            } else {
+                                // Lose a life
+                                gameState.lives--;
+                                gameState.combo = 0;
+                                gameState.comboMultiplier = 1;
+                                gameState.screenShake = 15;
+                                playSound('drain');
+
+                                // Random compromise message
+                                const messages = [
+                                    'Wallet compromised!',
+                                    'Seed phrase leaked!',
+                                    'Connected to malicious dApp!',
+                                    'Approved unlimited spend!',
+                                    'Phishing link clicked!',
+                                    'Rug pull detected!',
+                                    'Private key exposed!',
+                                    'Smart contract exploit!'
+                                ];
+                                gameState.compromiseMessage = messages[Math.floor(Math.random() * messages.length)];
+                                gameState.compromiseMessageLife = 1500;  // Show for 1.5 seconds
+
+                                // Check for game over
+                                if (gameState.lives <= 0) {
+                                    currentState = GAME_STATE.GAME_OVER; stopMusic(); playHiScoreMusic();
+                                }
+                            }
+                            break;
+
+                        case 'shield':
+                            gameState.hasShield = true;
+                            playSound('coin');
+                            break;
+
+                        case 'magnet':
+                            gameState.magnet = true;
+                            gameState.magnetTimer = 4000;
+                            playSound('coin');
+                            break;
+                    }
+                }
+
+                // Near-miss bonus for drainers
+                if (obj.type === 'drainer' && !obj.collected && obj.x < playerX - 60 && obj.x > playerX - 100) {
+                    const verticalDistance = Math.abs(obj.y - playerY);
+                    if (verticalDistance > 70 && !obj.nearMissAwarded) {
+                        obj.nearMissAwarded = true;
+                        gameState.score += 5;
+                        gameState.screenShake = 3;
+                    }
+                }
+            });
+
+            // Remove collected and off-screen objects
+            gameState.objects = gameState.objects.filter(obj => !obj.collected && !obj.isOffScreen());
+
+            // Missed a coin = break combo
+            gameState.objects.forEach(obj => {
+                if (obj.type === 'coin' && obj.x < playerX - 100 && !obj.missedCombo) {
+                    obj.missedCombo = true;
+                    gameState.combo = 0;
+                    gameState.comboMultiplier = 1;
+                }
+            });
+        }
+
+
+        // ==========================================
+        // DRAWING FUNCTIONS
+        // ==========================================
+
+        function drawBackground() {
+            ctx.save();
+
+            // Background tint based on milestone
+            let tint = '#1a0033';
+            if (gameState.milestoneReached >= 3) {
+                tint = '#330066';
+            } else if (gameState.milestoneReached >= 2) {
+                tint = '#220044';
+            } else if (gameState.milestoneReached >= 1) {
+                tint = '#1a0040';
+            }
+
+            ctx.fillStyle = tint;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw scrolling background in top 80% (game area)
+            if (assets.images.background.complete) {
+                const gameAreaHeight = canvas.height * PHYSICS.GAME_AREA_RATIO;
+                const bgOffsetY = 0;
+                const bgHeight = gameAreaHeight;
+                const bgWidth = assets.images.background.width * (bgHeight / assets.images.background.height);
+                const scrollX = -gameState.bgScroll % bgWidth;
+
+                ctx.globalAlpha = 0.7;
+                ctx.drawImage(assets.images.background, scrollX, bgOffsetY, bgWidth, bgHeight);
+                ctx.drawImage(assets.images.background, scrollX + bgWidth, bgOffsetY, bgWidth, bgHeight);
+                ctx.globalAlpha = 1.0;
+            }
+
+            // Draw hold zone at bottom 20%
+            const holdZoneY = canvas.height * PHYSICS.GAME_AREA_RATIO;
+            ctx.fillStyle = '#0a0015';
+            ctx.fillRect(0, holdZoneY, canvas.width, canvas.height * PHYSICS.HOLD_ZONE_RATIO);
+
+            // Hold zone text — yellow for visibility
+            ctx.fillStyle = '#ffff00';
+            ctx.font = '12px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            ctx.fillText(gameState.isHolding ? 'LET GO TO JUMP' : 'HOLD TO RUN', canvas.width / 2, holdZoneY + canvas.height * PHYSICS.HOLD_ZONE_RATIO / 2);
+
+            ctx.restore();
+        }
+
+        function drawPlayer() {
+            const playerX = gameState.playerX;
+            const playerY = gameState.playerY;
+            const playerSize = getPlayerSize();
+
+            ctx.save();
+
+            // Set glow based on active powerup (no glow by default)
+            if (gameState.magnet) {
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#ff0000';
+            } else if (gameState.hasShield) {
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#ffd700';
+            }
+
+            // Draw player sprite - feet should touch groundY
+            const frameIndex = Math.floor(gameState.playerAnimFrame) % 6 + 1;
+            let spriteImg;
+
+            if (gameState.isWalking) {
+                spriteImg = assets.images[`walk${frameIndex}`];
+            } else {
+                spriteImg = assets.images[`jump${frameIndex}`];
+            }
+
+            if (spriteImg && spriteImg.complete) {
+                ctx.drawImage(spriteImg, playerX - playerSize/2, playerY - playerSize, playerSize, playerSize);
+            } else {
+                ctx.fillStyle = '#ff6600';
+                ctx.beginPath();
+                ctx.arc(playerX, playerY, playerSize/2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.shadowBlur = 0;
+            ctx.restore();
+        }
+
+        function drawUI() {
+            ctx.save();
+            ctx.fillStyle = '#0ff';
+            ctx.font = '16px "Press Start 2P"';
+            ctx.textAlign = 'left';
+
+            // Score
+            ctx.fillText(`SCORE: ${gameState.score}`, 10, 30);
+
+            // Combo
+            if (gameState.comboMultiplier > 1) {
+                ctx.fillStyle = gameState.comboMultiplier === 3 ? '#ff00ff' : '#ffff00';
+                ctx.fillText(`${gameState.comboMultiplier}X COMBO`, 10, 60);
+            }
+
+            // Lives display - owl faces with blue glow in top-right
+            const livesX = canvas.width - 45;
+            const livesY = 45;
+            const lifeSize = 65;
+            const lifeSpacing = 55;
+            const owlLifeImg = assets.images.look1;
+
+            for (let i = 0; i < gameState.lives; i++) {
+                const lx = livesX - (i * lifeSpacing) - lifeSize;
+                const ly = livesY - 5;
+                if (owlLifeImg && owlLifeImg.complete) {
+                    const sw = owlLifeImg.naturalWidth;
+                    const sh = owlLifeImg.naturalHeight;
+                    // Crop to face — ears to chest
+                    const cropX = sw * 0.05;
+                    const cropY = 0;
+                    const cropW = sw * 0.9;
+                    const cropH = sh * 0.58;
+                    const drawH = lifeSize * (cropH / cropW);
+
+                    // Face only — no glow
+                    ctx.drawImage(owlLifeImg, cropX, cropY, cropW, cropH, lx, ly, lifeSize, drawH);
+                }
+            }
+
+            // Compromise message - big banner style
+            if (gameState.compromiseMessageLife > 0) {
+                const alpha = Math.min(1, gameState.compromiseMessageLife / 500);  // Fade out
+                ctx.save();
+                ctx.globalAlpha = alpha;
+
+                // Semi-transparent black background banner
+                const bannerY = canvas.height * 0.3;
+                const bannerHeight = 50;
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                ctx.fillRect(0, bannerY - bannerHeight/2, canvas.width, bannerHeight);
+
+                // Red border on banner
+                ctx.strokeStyle = '#ff0000';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(0, bannerY - bannerHeight/2, canvas.width, bannerHeight);
+
+                // White text — auto-size to fit screen width
+                ctx.fillStyle = '#fff';
+                ctx.textAlign = 'center';
+                let fontSize = 16;
+                ctx.font = `${fontSize}px "Press Start 2P"`;
+                while (ctx.measureText(gameState.compromiseMessage).width > canvas.width - 20 && fontSize > 8) {
+                    fontSize -= 1;
+                    ctx.font = `${fontSize}px "Press Start 2P"`;
+                }
+                ctx.fillText(gameState.compromiseMessage, canvas.width / 2, bannerY + fontSize/2);
+
+                ctx.restore();
+            }
+
+            ctx.restore();
+        }
+
+        function drawTitleScreen() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw title image
+            if (assets.images.title.complete) {
+                ctx.drawImage(assets.images.title, 0, 0, canvas.width, canvas.height);
+            }
+
+            // Tap to start
+            ctx.fillStyle = '#0ff';
+            ctx.font = '16px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#0ff';
+            ctx.fillText('TAP TO START', canvas.width / 2, canvas.height * 0.6);
+
+            // High scores button
+            ctx.fillStyle = '#ff00ff';
+            ctx.shadowColor = '#ff00ff';
+            ctx.fillText('TAP BOTTOM FOR', canvas.width / 2, canvas.height * 0.75);
+            ctx.fillText('HIGH SCORES', canvas.width / 2, canvas.height * 0.75 + 25);
+        }
+
+        function drawGameOverScreen() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // YOU GOT RUGGED - big glitchy red text
+            ctx.fillStyle = '#ff0000';
+            ctx.font = '28px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            ctx.shadowBlur = 30;
+            ctx.shadowColor = '#ff0000';
+
+            // Glitchy effect
+            const glitchOffset = Math.random() * 4 - 2;
+            ctx.fillText('YOU GOT', canvas.width / 2 + glitchOffset, canvas.height * 0.25);
+            ctx.fillText('RUGGED', canvas.width / 2 - glitchOffset, canvas.height * 0.35);
+
+            // Score
+            ctx.fillStyle = '#0ff';
+            ctx.font = '20px "Press Start 2P"';
+            ctx.shadowColor = '#0ff';
+            ctx.shadowBlur = 15;
+            ctx.fillText(`SCORE: ${gameState.score}`, canvas.width / 2, canvas.height * 0.5);
+
+            // New high score
+            if (isHighScore(gameState.score)) {
+                ctx.fillStyle = '#ffd700';
+                ctx.font = '16px "Press Start 2P"';
+                ctx.shadowColor = '#ffd700';
+                ctx.shadowBlur = 20;
+                ctx.fillText('NEW HIGH SCORE!', canvas.width / 2, canvas.height * 0.6);
+            }
+
+            // Tap to continue
+            ctx.fillStyle = '#00ff00';
+            ctx.font = '14px "Press Start 2P"';
+            ctx.shadowColor = '#00ff00';
+            ctx.shadowBlur = 10;
+            ctx.fillText('TAP TO CONTINUE', canvas.width / 2, canvas.height * 0.75);
+        }
+
+        function drawHighScores() {
+            // Dark cyberpunk background
+            ctx.fillStyle = '#0a0015';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Title with underline
+            ctx.fillStyle = '#0ff';
+            ctx.font = '20px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#0ff';
+            ctx.fillText('HIGH SCORES', canvas.width / 2, 50);
+
+            // Underline
+            ctx.strokeStyle = '#0ff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width * 0.2, 60);
+            ctx.lineTo(canvas.width * 0.8, 60);
+            ctx.stroke();
+
+            // High score entries - each in DIFFERENT COLOR
+            ctx.font = '14px "Press Start 2P"';
+            gameState.highScores.forEach((entry, i) => {
+                const y = 100 + i * 35;
+                // Highlight new high score
+                if (i === gameState.newHighScoreIndex) {
+                    ctx.fillStyle = 'rgba(255, 255, 0, 0.3)';
+                    ctx.fillRect(0, y - 20, canvas.width, 30);
+                }
+
+                // All entries bright yellow
+                ctx.fillStyle = '#ffff00';
+                ctx.shadowColor = '#ffff00';
+                ctx.shadowBlur = 8;
+
+                // Rank number
+                ctx.textAlign = 'left';
+                ctx.fillText(`${i + 1}.`, 30, y);
+
+                // Initials
+                ctx.fillText(entry.initials, 80, y);
+
+                // Score
+                ctx.textAlign = 'right';
+                ctx.fillText(entry.score.toString(), canvas.width - 30, y);
+            });
+
+            // Back button
+            ctx.fillStyle = '#ff0000';
+            ctx.font = '12px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            ctx.shadowColor = '#ff0000';
+            ctx.fillText('TAP TO RETURN', canvas.width / 2, canvas.height - 30);
+        }
+
+        function drawEnterInitials() {
+            // Dark background
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Title
+            ctx.fillStyle = '#ffd700';
+            ctx.font = '18px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#ffd700';
+            ctx.fillText('NEW HIGH SCORE!', canvas.width / 2, 80);
+
+            // Score
+            ctx.fillStyle = '#0ff';
+            ctx.font = '16px "Press Start 2P"';
+            ctx.shadowColor = '#0ff';
+            ctx.fillText(`SCORE: ${gameState.score}`, canvas.width / 2, 120);
+
+            // Instructions
+            ctx.fillStyle = '#fff';
+            ctx.font = '10px "Press Start 2P"';
+            ctx.shadowBlur = 5;
+            ctx.shadowColor = '#fff';
+            ctx.fillText('TAP LETTERS TO CYCLE A-Z', canvas.width / 2, 160);
+
+            // Draw three large letters (tap each to cycle)
+            const letterSpacing = 80;
+            const startX = canvas.width / 2 - letterSpacing;
+            const letterY = 240;
+
+            initialsInput.blinkTimer += 16;
+            const blink = Math.floor(initialsInput.blinkTimer / 500) % 2 === 0;
+
+            for (let i = 0; i < 3; i++) {
+                const x = startX + i * letterSpacing;
+
+                // Box for letter — all bright yellow
+                ctx.strokeStyle = '#ffff00';
+                ctx.lineWidth = 3;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#ffff00';
+                ctx.strokeRect(x - 30, letterY - 45, 60, 60);
+
+                // Letter — bright yellow with glow
+                ctx.fillStyle = '#ffff00';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#ffff00';
+                ctx.font = '36px "Press Start 2P"';
+                ctx.textAlign = 'center';
+                ctx.fillText(initialsInput.letters[i], x, letterY);
+            }
+
+            // SUBMIT button (green)
+            const submitY = 340;
+            ctx.fillStyle = '#00ff00';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#00ff00';
+            ctx.fillRect(canvas.width / 2 - 100, submitY, 200, 50);
+
+            ctx.fillStyle = '#000';
+            ctx.font = '14px "Press Start 2P"';
+            ctx.shadowBlur = 0;
+            ctx.fillText('SUBMIT', canvas.width / 2, submitY + 32);
+        }
+
+        // ==========================================
+        // GAME LOOP
+        // ==========================================
+
+        let lastTime = performance.now();
+
+        function gameLoop(currentTime) {
+            const deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+
+            // Apply screen shake
+            if (gameState.screenShake > 0) {
+                ctx.save();
+                ctx.translate(
+                    (Math.random() - 0.5) * gameState.screenShake,
+                    (Math.random() - 0.5) * gameState.screenShake
+                );
+                gameState.screenShake *= 0.9;
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            switch (currentState) {
+                case GAME_STATE.TITLE:
+                    drawTitleScreen();
+                    break;
+
+                case GAME_STATE.PLAYING:
+                    // Update physics
+                    updatePhysics(deltaTime);
+
+                    // Animation speed based on state
+                    let animRate;
+                    if (gameState.isWalking) {
+                        animRate = deltaTime * 0.01;  // Walk: ~10fps
+                    } else if (!gameState.grounded) {
+                        animRate = deltaTime * 0.008;  // Jumping: ~8fps
+                    } else {
+                        animRate = deltaTime * 0.003;  // Idle bounce: slow gentle
+                    }
+                    gameState.playerAnimFrame += animRate;
+
+                    updateGameSpeed(deltaTime);
+                    spawnObject();
+
+                    gameState.objects.forEach(obj => obj.update(deltaTime));
+                    checkCollisions();
+
+                    if (gameState.magnet) {
+                        gameState.magnetTimer -= deltaTime;
+                        if (gameState.magnetTimer <= 0) {
+                            gameState.magnet = false;
+                        }
+                    }
+
+                    // Draw
+                    drawBackground();
+                    gameState.objects.forEach(obj => obj.draw());
+                    drawPlayer();
+                    drawUI();
+                    break;
+
+                case GAME_STATE.GAME_OVER:
+                    drawGameOverScreen();
+                    break;
+
+                case GAME_STATE.HIGH_SCORES:
+                    drawHighScores();
+                    break;
+
+                case GAME_STATE.ENTER_INITIALS:
+                    drawEnterInitials();
+                    break;
+            }
+
+            if (gameState.screenShake > 0) {
+                ctx.restore();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ==========================================
+        // INPUT HANDLING - CRITICAL: Hold to walk, Release to jump
+        // ==========================================
+
+        let touchActive = false;
+
+        // Touch events for mobile
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            enableAudio();
+
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+
+            switch (currentState) {
+                case GAME_STATE.TITLE:
+                    if (y > canvas.height * 0.7) {
+                        currentState = GAME_STATE.HIGH_SCORES; playHiScoreMusic();
+                    } else {
+                        resetGame();
+                        currentState = GAME_STATE.PLAYING; stopMusic(); startMusic();
+                    }
+                    break;
+
+                case GAME_STATE.PLAYING:
+                    // HOLD = WALK
+                    startHolding();
+                    touchActive = true;
+                    break;
+
+                case GAME_STATE.GAME_OVER:
+                    if (isHighScore(gameState.score)) {
+                        initialsInput = { letters: ['A', 'A', 'A'], currentIndex: 0, blinkTimer: 0 };
+                        currentState = GAME_STATE.ENTER_INITIALS;
+                    } else {
+                        currentState = GAME_STATE.HIGH_SCORES; playHiScoreMusic();
+                    }
+                    break;
+
+                case GAME_STATE.HIGH_SCORES:
+                    currentState = GAME_STATE.TITLE;
+                    break;
+
+                case GAME_STATE.ENTER_INITIALS:
+                    // Check which letter was tapped
+                    const letterSpacing = 80;
+                    const startX = canvas.width / 2 - letterSpacing;
+                    const letterY = 240;
+
+                    for (let i = 0; i < 3; i++) {
+                        const lx = startX + i * letterSpacing;
+                        if (x > lx - 30 && x < lx + 30 && y > letterY - 45 && y < letterY + 15) {
+                            cycleInitialLetter(i);
+                            break;
+                        }
+                    }
+
+                    // Check submit button
+                    const submitY = 340;
+                    if (y > submitY && y < submitY + 50 && x > canvas.width / 2 - 100 && x < canvas.width / 2 + 100) {
+                        const initials = initialsInput.letters.join('');
+                        addHighScore(initials, gameState.score);
+                        currentState = GAME_STATE.HIGH_SCORES; playHiScoreMusic();
+                    }
+                    break;
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+
+            // RELEASE = JUMP
+            if (currentState === GAME_STATE.PLAYING && touchActive) {
+                releaseHolding();
+                touchActive = false;
+            }
+        }, { passive: false });
+
+        // Mouse events for desktop testing
+        canvas.addEventListener('mousedown', (e) => {
+            enableAudio();
+
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            switch (currentState) {
+                case GAME_STATE.TITLE:
+                    if (y > canvas.height * 0.7) {
+                        currentState = GAME_STATE.HIGH_SCORES; playHiScoreMusic();
+                    } else {
+                        resetGame();
+                        currentState = GAME_STATE.PLAYING; stopMusic(); startMusic();
+                    }
+                    break;
+
+                case GAME_STATE.PLAYING:
+                    startHolding();
+                    touchActive = true;
+                    break;
+
+                case GAME_STATE.GAME_OVER:
+                    if (isHighScore(gameState.score)) {
+                        initialsInput = { letters: ['A', 'A', 'A'], currentIndex: 0, blinkTimer: 0 };
+                        currentState = GAME_STATE.ENTER_INITIALS;
+                    } else {
+                        currentState = GAME_STATE.HIGH_SCORES; playHiScoreMusic();
+                    }
+                    break;
+
+                case GAME_STATE.HIGH_SCORES:
+                    currentState = GAME_STATE.TITLE;
+                    break;
+
+                case GAME_STATE.ENTER_INITIALS:
+                    const letterSpacing = 80;
+                    const startX = canvas.width / 2 - letterSpacing;
+                    const letterY = 240;
+
+                    for (let i = 0; i < 3; i++) {
+                        const lx = startX + i * letterSpacing;
+                        if (x > lx - 30 && x < lx + 30 && y > letterY - 45 && y < letterY + 15) {
+                            cycleInitialLetter(i);
+                            break;
+                        }
+                    }
+
+                    const submitY = 340;
+                    if (y > submitY && y < submitY + 50 && x > canvas.width / 2 - 100 && x < canvas.width / 2 + 100) {
+                        const initials = initialsInput.letters.join('');
+                        addHighScore(initials, gameState.score);
+                        currentState = GAME_STATE.HIGH_SCORES; playHiScoreMusic();
+                    }
+                    break;
+            }
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            if (currentState === GAME_STATE.PLAYING && touchActive) {
+                releaseHolding();
+                touchActive = false;
+            }
+        });
+
+        // Keyboard controls for desktop testing
+        let keyHeld = false;
+        document.addEventListener('keydown', (e) => {
+            if (currentState === GAME_STATE.PLAYING) {
+                if ((e.key === ' ' || e.key === 'ArrowDown' || e.key === 's') && !keyHeld) {
+                    e.preventDefault();
+                    startHolding();
+                    keyHeld = true;
+                }
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (currentState === GAME_STATE.PLAYING) {
+                if (e.key === ' ' || e.key === 'ArrowDown' || e.key === 's') {
+                    e.preventDefault();
+                    releaseHolding();
+                    keyHeld = false;
+                }
+            }
+        });
+
+        // Start game loop
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
