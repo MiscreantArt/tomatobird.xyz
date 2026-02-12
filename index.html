@@ -129,6 +129,7 @@
         const GAME_STATE = {
             LOADING: 'loading',
             TITLE: 'title',
+            HOW_TO_PLAY: 'howToPlay',
             PLAYING: 'playing',
             GAME_OVER: 'gameOver',
             HIGH_SCORES: 'highScores',
@@ -1126,6 +1127,62 @@
             ctx.fillText('HIGH SCORES', canvas.width / 2, canvas.height * 0.75 + 25);
         }
 
+        function drawHowToPlay() {
+            ctx.fillStyle = '#0a0015';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const cx = canvas.width / 2;
+            const s = Math.min(canvas.width, canvas.height) * 0.035; // responsive font base
+
+            // Title
+            ctx.fillStyle = '#0ff';
+            ctx.font = `bold ${Math.round(s * 1.4)}px "Press Start 2P"`;
+            ctx.textAlign = 'center';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#0ff';
+            ctx.fillText('HOW TO PLAY', cx, s * 2.5);
+
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
+
+            // Instructions
+            const lines = [
+                { icon: '👆', color: '#00ff88', text: 'HOLD to walk' },
+                { icon: '🦅', color: '#00ff88', text: 'RELEASE to jump' },
+                { icon: '🪙', color: '#ffd700', text: 'Collect ETH coins' },
+                { icon: '💀', color: '#ff4444', text: 'Avoid drainer skulls' },
+                { icon: '🛡️', color: '#ffd700', text: 'Shield = protection' },
+                { icon: '🧲', color: '#ff4444', text: 'Magnet = sucks coins' },
+                { icon: '❤️', color: '#ff6688', text: '3 lives — don\'t get rugged!' },
+            ];
+
+            const startY = s * 5;
+            const lineH = s * 2.8;
+            ctx.font = `${Math.round(s * 0.9)}px "Press Start 2P"`;
+
+            lines.forEach((line, i) => {
+                const y = startY + i * lineH;
+                // Icon
+                ctx.font = `${Math.round(s * 1.2)}px sans-serif`;
+                ctx.fillText(line.icon, cx - canvas.width * 0.3, y);
+                // Text
+                ctx.font = `${Math.round(s * 0.85)}px "Press Start 2P"`;
+                ctx.fillStyle = line.color;
+                ctx.fillText(line.text, cx + canvas.width * 0.05, y);
+            });
+
+            // Tap to start
+            ctx.fillStyle = '#0ff';
+            ctx.font = `${Math.round(s)}px "Press Start 2P"`;
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = '#0ff';
+            const pulseAlpha = 0.5 + 0.5 * Math.sin(Date.now() / 300);
+            ctx.globalAlpha = pulseAlpha;
+            ctx.fillText('TAP TO START', cx, canvas.height - s * 3);
+            ctx.globalAlpha = 1;
+            ctx.shadowBlur = 0;
+        }
+
         function drawGameOverScreen() {
             ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1315,6 +1372,10 @@
                     drawTitleScreen();
                     break;
 
+                case GAME_STATE.HOW_TO_PLAY:
+                    drawHowToPlay();
+                    break;
+
                 case GAME_STATE.PLAYING:
                     // Update physics
                     updatePhysics(deltaTime);
@@ -1390,10 +1451,18 @@
                 case GAME_STATE.TITLE:
                     if (y > canvas.height * 0.7) {
                         currentState = GAME_STATE.HIGH_SCORES; playHiScoreMusic();
+                    } else if (!localStorage.getItem('etherDashTutorialSeen')) {
+                        currentState = GAME_STATE.HOW_TO_PLAY;
                     } else {
                         resetGame();
                         currentState = GAME_STATE.PLAYING; stopMusic(); startMusic();
                     }
+                    break;
+
+                case GAME_STATE.HOW_TO_PLAY:
+                    localStorage.setItem('etherDashTutorialSeen', '1');
+                    resetGame();
+                    currentState = GAME_STATE.PLAYING; stopMusic(); startMusic();
                     break;
 
                 case GAME_STATE.PLAYING:
@@ -1462,10 +1531,18 @@
                 case GAME_STATE.TITLE:
                     if (y > canvas.height * 0.7) {
                         currentState = GAME_STATE.HIGH_SCORES; playHiScoreMusic();
+                    } else if (!localStorage.getItem('etherDashTutorialSeen')) {
+                        currentState = GAME_STATE.HOW_TO_PLAY;
                     } else {
                         resetGame();
                         currentState = GAME_STATE.PLAYING; stopMusic(); startMusic();
                     }
+                    break;
+
+                case GAME_STATE.HOW_TO_PLAY:
+                    localStorage.setItem('etherDashTutorialSeen', '1');
+                    resetGame();
+                    currentState = GAME_STATE.PLAYING; stopMusic(); startMusic();
                     break;
 
                 case GAME_STATE.PLAYING:
