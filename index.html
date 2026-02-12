@@ -1311,7 +1311,7 @@
                     const headSize = iconSize * 2.2;
                     const drawH = headSize * (cropH / cropW);
                     ctx.drawImage(src, cropX, cropY, cropW, cropH,
-                        iconX - headSize/2, y - drawH * 0.85, headSize, drawH);
+                        iconX - headSize/2 + 2, y - drawH * 0.85 - 5, headSize, drawH);
                 } else if (line.img && line.img.complete) {
                     ctx.drawImage(line.img, iconX - iconSize/2, y - iconSize * 0.6, iconSize, iconSize);
                 } else if (line.emoji) {
