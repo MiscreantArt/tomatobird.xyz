@@ -1279,7 +1279,7 @@
             if (owlFrame && owlFrame.complete) {
                 const owlSize = canvas.width * 0.38;
                 const owlX = canvas.width / 2 - owlSize / 2;
-                const owlY = canvas.height * 0.40;
+                const owlY = canvas.height * 0.45;
                 ctx.drawImage(owlFrame, owlX, owlY, owlSize, owlSize);
             }
 
@@ -1291,19 +1291,19 @@
             ctx.fillStyle = '#0ff';
             const pulseA = 0.5 + 0.5 * Math.sin(Date.now() / 300);
             ctx.globalAlpha = pulseA;
-            ctx.fillText('TAP TO START', canvas.width / 2, canvas.height * 0.68);
+            ctx.fillText('TAP TO START', canvas.width / 2, canvas.height * 0.72);
             ctx.globalAlpha = 1;
 
             // How to play button (left side of bottom)
             ctx.fillStyle = '#00ff88';
             ctx.shadowColor = '#00ff88';
             ctx.font = '12px "Press Start 2P"';
-            ctx.fillText('HOW TO PLAY', canvas.width * 0.25, canvas.height * 0.85);
+            ctx.fillText('HOW TO PLAY', canvas.width * 0.25, canvas.height * 0.90);
 
             // High scores button (right side of bottom)
             ctx.fillStyle = '#ff00ff';
             ctx.shadowColor = '#ff00ff';
-            ctx.fillText('HIGH SCORES', canvas.width * 0.75, canvas.height * 0.85);
+            ctx.fillText('HIGH SCORES', canvas.width * 0.75, canvas.height * 0.90);
         }
 
         function drawHowToPlay() {
@@ -1678,9 +1678,9 @@
 
             switch (currentState) {
                 case GAME_STATE.TITLE:
-                    if (y > canvas.height * 0.8 && x < canvas.width * 0.5) {
+                    if (y > canvas.height * 0.85 && x < canvas.width * 0.5) {
                         currentState = GAME_STATE.HOW_TO_PLAY;
-                    } else if (y > canvas.height * 0.8 && x >= canvas.width * 0.5) {
+                    } else if (y > canvas.height * 0.85 && x >= canvas.width * 0.5) {
                         currentState = GAME_STATE.HIGH_SCORES;
                     } else if (!localStorage.getItem('etherDashTutorialSeen')) {
                         currentState = GAME_STATE.HOW_TO_PLAY;
@@ -1760,9 +1760,9 @@
 
             switch (currentState) {
                 case GAME_STATE.TITLE:
-                    if (y > canvas.height * 0.8 && x < canvas.width * 0.5) {
+                    if (y > canvas.height * 0.85 && x < canvas.width * 0.5) {
                         currentState = GAME_STATE.HOW_TO_PLAY;
-                    } else if (y > canvas.height * 0.8 && x >= canvas.width * 0.5) {
+                    } else if (y > canvas.height * 0.85 && x >= canvas.width * 0.5) {
                         currentState = GAME_STATE.HIGH_SCORES;
                     } else if (!localStorage.getItem('etherDashTutorialSeen')) {
                         currentState = GAME_STATE.HOW_TO_PLAY;
