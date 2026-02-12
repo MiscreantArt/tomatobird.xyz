@@ -505,6 +505,8 @@
 
             draw() {
                 ctx.save();
+                ctx.shadowBlur = 0;
+                ctx.shadowColor = 'transparent';
 
                 const drawX = this.x;
                 const drawY = this.y - this.height / 2 + this.bobOffset;
@@ -856,6 +858,8 @@
 
         function drawBackground() {
             ctx.save();
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
 
             // Background tint based on milestone
             let tint = '#1a0033';
@@ -904,17 +908,35 @@
             const playerSize = getPlayerSize();
 
             ctx.save();
+            // Always reset shadow first — no glow by default
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
 
-            // Set glow based on active powerup (no glow by default)
+            const owlCenterY = playerY - playerSize / 2;
+
+            // Shield ring + yellow glow
+            if (gameState.hasShield) {
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#ffd700';
+                ctx.strokeStyle = '#ffd700';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(playerX, owlCenterY, playerSize/2 + 5, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            // Magnet ring + red glow (overrides shield if both active)
             if (gameState.magnet) {
                 ctx.shadowBlur = 15;
                 ctx.shadowColor = '#ff0000';
-            } else if (gameState.hasShield) {
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = '#ffd700';
+                ctx.strokeStyle = '#ff0000';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(playerX, owlCenterY, playerSize/2 + 5, 0, Math.PI * 2);
+                ctx.stroke();
             }
 
-            // Draw player sprite - feet should touch groundY
+            // Draw player sprite - glow carries over from powerup if active
             const frameIndex = Math.floor(gameState.playerAnimFrame) % 6 + 1;
             let spriteImg;
 
@@ -933,12 +955,16 @@
                 ctx.fill();
             }
 
+            // Kill shadow state completely
             ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
             ctx.restore();
         }
 
         function drawUI() {
             ctx.save();
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
             ctx.fillStyle = '#0ff';
             ctx.font = '16px "Press Start 2P"';
             ctx.textAlign = 'left';
