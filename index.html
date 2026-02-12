@@ -895,16 +895,10 @@
 
                     switch (obj.type) {
                         case 'coin':
-                            const points = 1 * gameState.comboMultiplier;
+                            const points = 1;
                             gameState.score += points;
                             gameState.coinsCollected++;
-                            gameState.combo++;
-
-                            // Update combo multiplier
-                            if (gameState.combo >= 6) {
-                                gameState.comboMultiplier = 3;
-                            } else if (gameState.combo >= 3) {
-                                gameState.comboMultiplier = 2;
+                            if (false) { // combo removed
                             }
 
                             // Play coin sound ONLY when collected
@@ -974,12 +968,9 @@
             // Remove collected and off-screen objects
             gameState.objects = gameState.objects.filter(obj => !obj.collected && !obj.isOffScreen());
 
-            // Missed a coin = break combo
+            // Missed coin tracking (combo removed)
             gameState.objects.forEach(obj => {
-                if (obj.type === 'coin' && obj.x < playerX - 100 && !obj.missedCombo) {
-                    obj.missedCombo = true;
-                    gameState.combo = 0;
-                    gameState.comboMultiplier = 1;
+                if (false) { // combo removed
                 }
             });
         }
@@ -1118,11 +1109,7 @@
             // Score
             ctx.fillText(`SCORE: ${gameState.score}`, 10, 30);
 
-            // Combo
-            if (gameState.comboMultiplier > 1) {
-                ctx.fillStyle = gameState.comboMultiplier === 3 ? '#ff00ff' : '#ffff00';
-                ctx.fillText(`${gameState.comboMultiplier}X COMBO`, 10, 60);
-            }
+            // (combo display removed)
 
             // (close call display removed)
 
