@@ -847,7 +847,7 @@
                 for (let r = 0; r < rainCount; r++) {
                     const rainCoin = new GameObject('coin', 'upper', 0);
                     // Spawn off-screen right so player runs into the rain
-                    rainCoin.x = canvas.width + Math.random() * canvas.width * 0.5;
+                    rainCoin.x = canvas.width * 0.8 + Math.random() * canvas.width * 0.4;
                     rainCoin.y = -20 - Math.random() * 100;
                     rainCoin.falling = true;
                     rainCoin.fallSpeed = 8 + Math.random() * 5;  // fast rain
