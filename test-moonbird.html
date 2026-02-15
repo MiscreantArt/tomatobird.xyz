@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Moonbird Sprite Test</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: monospace;
+            background: #000;
+            color: #0ff;
+            padding: 20px;
+            text-align: center;
+        }
+        .sprite-test {
+            margin: 20px auto;
+            padding: 20px;
+            border: 2px solid #0ff;
+            max-width: 600px;
+        }
+        img {
+            width: 100px;
+            height: 100px;
+            image-rendering: pixelated;
+            margin: 10px;
+        }
+        input {
+            background: #000;
+            color: #0ff;
+            border: 1px solid #0ff;
+            padding: 5px;
+            font-family: monospace;
+        }
+        button {
+            background: #0ff;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            font-family: monospace;
+            cursor: pointer;
+        }
+        .error {
+            color: #ff0000;
+        }
+        .success {
+            color: #00ff00;
+        }
+    </style>
+</head>
+<body>
+    <h1>Moonbird Sprite Test</h1>
+    
+    <div class="sprite-test">
+        <h2>Test R2 Public URL</h2>
+        <p>Enter the R2 public URL from Cloudflare:</p>
+        <input type="text" id="r2url" placeholder="https://pub-xxxxx.r2.dev" size="40">
+        <button onclick="testR2()">Test R2</button>
+        <div id="r2result"></div>
+    </div>
+
+    <div class="sprite-test">
+        <h2>Test Custom Domain</h2>
+        <p>After setting up sprites.tomatobird.xyz:</p>
+        <button onclick="testCustomDomain()">Test Custom Domain</button>
+        <div id="customresult"></div>
+    </div>
+
+    <div class="sprite-test">
+        <h2>Test Specific Moonbird</h2>
+        <input type="number" id="moonbirdId" placeholder="0-9999" min="0" max="9999">
+        <button onclick="testMoonbird()">Load Moonbird</button>
+        <div id="moonbirdresult"></div>
+        <div id="sprites"></div>
+    </div>
+
+    <script>
+        let baseUrl = '';
+
+        function testR2() {
+            const url = document.getElementById('r2url').value;
+            if (!url) {
+                alert('Please enter the R2 public URL');
+                return;
+            }
+            baseUrl = url.replace(/\/$/, ''); // Remove trailing slash
+            testUrl(`${baseUrl}/test.txt`, 'r2result');
+        }
+
+        function testCustomDomain() {
+            baseUrl = 'https://sprites.tomatobird.xyz';
+            testUrl(`${baseUrl}/test.txt`, 'customresult');
+        }
+
+        function testUrl(url, resultId) {
+            const resultDiv = document.getElementById(resultId);
+            resultDiv.innerHTML = 'Testing...';
+            
+            fetch(url)
+                .then(response => {
+                    if (response.ok) {
+                        resultDiv.innerHTML = '<span class="success">✓ Success! URL is working.</span>';
+                        return response.text();
+                    } else {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                })
+                .then(text => {
+                    console.log('Response:', text);
+                })
+                .catch(error => {
+                    resultDiv.innerHTML = `<span class="error">✗ Error: ${error.message}</span>`;
+                });
+        }
+
+        function testMoonbird() {
+            const id = document.getElementById('moonbirdId').value;
+            if (!id || !baseUrl) {
+                alert('Please test R2 or custom domain first, then enter a moonbird ID');
+                return;
+            }
+
+            const resultDiv = document.getElementById('moonbirdresult');
+            const spritesDiv = document.getElementById('sprites');
+            
+            resultDiv.innerHTML = `Testing Moonbird #${id}...`;
+            spritesDiv.innerHTML = '';
+
+            // Test idle and walk sprites
+            const sprites = [];
+            for (let i = 1; i <= 6; i++) {
+                sprites.push(`idle_${i}.png`);
+                sprites.push(`walk_${i}.png`);
+            }
+
+            let loaded = 0;
+            let failed = 0;
+
+            sprites.forEach(sprite => {
+                const img = new Image();
+                img.src = `${baseUrl}/${id}/${sprite}`;
+                img.onload = () => {
+                    loaded++;
+                    spritesDiv.appendChild(img);
+                    updateResult();
+                };
+                img.onerror = () => {
+                    failed++;
+                    updateResult();
+                };
+            });
+
+            function updateResult() {
+                if (loaded + failed === sprites.length) {
+                    if (loaded === sprites.length) {
+                        resultDiv.innerHTML = `<span class="success">✓ All sprites loaded!</span>`;
+                    } else if (loaded > 0) {
+                        resultDiv.innerHTML = `<span class="error">Partial: ${loaded}/12 sprites loaded</span>`;
+                    } else {
+                        resultDiv.innerHTML = `<span class="error">✗ No sprites found for #${id}</span>`;
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
