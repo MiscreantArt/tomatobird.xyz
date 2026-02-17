@@ -83,7 +83,7 @@
         }
     </style>
 </head>
-<body>
+<body style="background:#000;margin:0;overflow:hidden;">
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
     </div>
@@ -104,14 +104,32 @@
         const ctx = canvas.getContext('2d');
         const loadingFill = document.getElementById('loadingFill');
 
-        // Canvas setup for portrait mobile - account for Safari UI
+        // Canvas setup — use full screen in portrait, cap at 9:16 in landscape
+        const MAX_RATIO = 9 / 16; // widest allowed (portrait)
         function resizeCanvas() {
-            const windowWidth = window.innerWidth;
-            const windowHeight = window.innerHeight;
-            
-            // Leave room for Safari's UI bars
-            canvas.width = windowWidth;
-            canvas.height = windowHeight * 0.95; // Use 95% to avoid Safari UI overlap
+            const winW = window.innerWidth;
+            const winH = window.innerHeight * 0.95;
+
+            let cw, ch;
+            const ratio = winW / winH;
+
+            if (ratio > MAX_RATIO) {
+                // Landscape or too wide — letterbox to 9:16
+                ch = winH;
+                cw = Math.round(ch * MAX_RATIO);
+            } else {
+                // Portrait phone — use full width, no bars
+                cw = winW;
+                ch = winH;
+            }
+
+            canvas.width = cw;
+            canvas.height = ch;
+            canvas.style.width = cw + 'px';
+            canvas.style.height = ch + 'px';
+            canvas.style.position = 'absolute';
+            canvas.style.left = Math.round((winW - cw) / 2) + 'px';
+            canvas.style.top = Math.round((window.innerHeight * 0.95 - ch) / 2) + 'px';
         }
 
         resizeCanvas();
@@ -125,11 +143,146 @@
             LOADING: 'loading',
             TITLE: 'title',
             HOW_TO_PLAY: 'howToPlay',
+            CHOOSE_BIRD: 'chooseBird',
             PLAYING: 'playing',
             GAME_OVER: 'gameOver',
             HIGH_SCORES: 'highScores',
             ENTER_INITIALS: 'enterInitials'
         };
+
+        // ==========================================
+        // MOONBIRD CHOOSER STATE
+        // ==========================================
+        const MOONBIRD_CDN = 'https://pub-a04e3d2e363a40bab58b0c80a73ae92c.r2.dev';
+        // Will become: 'https://sprites.tomatobird.xyz'
+        
+        const MISCREANT_BIRD_ID = 2779;
+
+        // Reserved names — can't be used for custom bird names
+        const RESERVED_NAMES = {
+            2779: 'MISCREANT',
+            420: 'SNOOP BIRD',
+            69: 'NICE',
+            1337: 'L33T',
+            0: 'GENESIS',
+            9999: 'FINAL BOSS',
+            42: 'HITCHHIKER',
+            666: 'HELL BIRD',
+            8008: 'CLASSIC',
+            7777: 'JACKPOT',
+            8209: 'JK',
+            649: 'BARMAN'
+        };
+
+        // 3 save slots + active selection
+        let moonbirdState = {
+            selectedId: MISCREANT_BIRD_ID,
+            inputDigits: '',
+            previewSprites: null,
+            previewLoading: false,
+            cursorBlink: 0,
+            inputFresh: true,  // true = next digit clears field first
+            slots: [null, null, null],  // {id, name} or null
+            namingMode: false,  // true when naming a bird for a slot
+            namingSlot: -1,     // which slot we're naming for
+            namingText: '',     // current name being typed
+        };
+
+        // Load save slots from localStorage
+        try {
+            const savedSlots = JSON.parse(localStorage.getItem('moonbirdSlots'));
+            if (Array.isArray(savedSlots)) moonbirdState.slots = savedSlots;
+        } catch(e) {}
+
+        // Load active selection from localStorage
+        const savedBird = localStorage.getItem('selectedMoonbird');
+        if (savedBird) {
+            moonbirdState.selectedId = parseInt(savedBird);
+        }
+
+        function getMoonbirdDisplayName() {
+            const id = moonbirdState.selectedId;
+            if (RESERVED_NAMES[id]) return RESERVED_NAMES[id];
+            // Check if saved in a slot with a custom name
+            for (const slot of moonbirdState.slots) {
+                if (slot && slot.id === id && slot.name) return slot.name;
+            }
+            return `MOONBIRD #${id}`;
+        }
+
+        function saveMoonbirdSelection() {
+            localStorage.setItem('selectedMoonbird', moonbirdState.selectedId.toString());
+        }
+
+        function saveMoonbirdSlots() {
+            localStorage.setItem('moonbirdSlots', JSON.stringify(moonbirdState.slots));
+        }
+
+        function isReservedName(name) {
+            const upper = name.toUpperCase().trim();
+            if (upper.length === 0) return true;
+            for (const rn of Object.values(RESERVED_NAMES)) {
+                if (upper === rn) return true;
+            }
+            return false;
+        }
+
+        // Load moonbird sprites into the main game assets (replaces owl sprites)
+        async function loadMoonbirdGameSprites(id) {
+            if (id === null) return; // keep original owl
+            const cdnBase = `${MOONBIRD_CDN}/${id}`;
+            
+            // Mapping: R2 sprite name → game asset key
+            // east_idle_1-6.png (side-facing bounce) → jump1-jump6 (in-game idle + jumping)
+            // walk_1-6.png (side-facing walking) → walk1-walk6 (running)
+            // idle_1-6.png (front-facing) → look1-look6 (title screen, life icon)
+            const mappings = [];
+            for (let i = 1; i <= 6; i++) {
+                mappings.push({ url: `${cdnBase}/east_idle_${i}.png`, keys: [`jump${i}`] });
+                mappings.push({ url: `${cdnBase}/walk_${i}.png`, keys: [`walk${i}`] });
+                mappings.push({ url: `${cdnBase}/idle_${i}.png`, keys: [`look${i}`] });
+            }
+
+            const results = await Promise.allSettled(mappings.map(m => 
+                new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.onload = () => resolve({ img, keys: m.keys });
+                    img.onerror = () => reject(m.url);
+                    img.src = m.url;
+                })
+            ));
+
+            let loaded = 0;
+            results.forEach(r => {
+                if (r.status === 'fulfilled') {
+                    r.value.keys.forEach(key => { assets.images[key] = r.value.img; });
+                    loaded++;
+                }
+            });
+
+            console.log(`Moonbird #${id}: loaded ${loaded}/12 sprite sets`);
+            // If any failed, the original owl sprites remain as fallback for those frames
+        }
+
+        // Load moonbird preview sprites for the chooser screen
+        async function loadMoonbirdPreview(id) {
+            if (id === null) { moonbirdState.previewSprites = null; return; }
+            moonbirdState.previewLoading = true;
+            const sprites = {};
+            const names = ['idle_1', 'idle_2', 'idle_3', 'idle_4', 'idle_5', 'idle_6'];
+            try {
+                await Promise.all(names.map(name => new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.onload = () => { sprites[name] = img; resolve(); };
+                    img.onerror = () => reject();
+                    img.src = `${MOONBIRD_CDN}/${id}/${name}.png`;
+                })));
+                moonbirdState.previewSprites = sprites;
+            } catch(e) {
+                moonbirdState.previewSprites = null;
+            }
+            moonbirdState.previewLoading = false;
+        }
 
         let currentState = GAME_STATE.LOADING;
 
@@ -190,10 +343,11 @@
 
             if (assets.loaded === assets.total) {
                 
-                setTimeout(() => {
+                // Pre-load saved moonbird sprites so title screen shows the right bird
+                loadMoonbirdGameSprites(moonbirdState.selectedId).then(() => {
                     document.getElementById('loadingScreen').style.display = 'none';
                     currentState = GAME_STATE.TITLE;
-                }, 500);
+                });
             }
         }
 
@@ -1112,7 +1266,22 @@
             ctx.fillStyle = '#ffff00';
             ctx.font = '12px "Press Start 2P"';
             ctx.textAlign = 'center';
-            ctx.fillText(gameState.isHolding ? 'LET GO TO JUMP' : 'HOLD TO RUN', canvas.width / 2, holdZoneY + canvas.height * PHYSICS.HOLD_ZONE_RATIO / 2);
+            ctx.fillText(gameState.isHolding ? 'RELEASE TO JUMP' : 'HOLD TO RUN', canvas.width / 2, holdZoneY + canvas.height * PHYSICS.HOLD_ZONE_RATIO / 2);
+
+            // Quit button — bottom left
+            const quitW = 50;
+            const quitH = 20;
+            const quitX = 8;
+            const quitY = canvas.height - quitH - 4;
+            ctx.fillStyle = 'rgba(80,0,0,0.6)';
+            ctx.fillRect(quitX, quitY, quitW, quitH);
+            ctx.strokeStyle = '#f44';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(quitX, quitY, quitW, quitH);
+            ctx.fillStyle = '#f88';
+            ctx.font = '7px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            ctx.fillText('QUIT', quitX + quitW/2, quitY + 14);
 
             ctx.restore();
         }
@@ -1153,15 +1322,10 @@
                 }
             }
 
-            // Magnet ring + red glow (overrides shield if both active)
+            // Magnet red glow (no ring)
             if (gameState.magnet) {
-                ctx.shadowBlur = 15;
+                ctx.shadowBlur = 20;
                 ctx.shadowColor = '#ff0000';
-                ctx.strokeStyle = '#ff0000';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.arc(playerX, owlCenterY, playerSize/2 + 5, 0, Math.PI * 2);
-                ctx.stroke();
             }
 
             // Draw player sprite - glow carries over from powerup if active
@@ -1197,8 +1361,8 @@
             ctx.font = '16px "Press Start 2P"';
             ctx.textAlign = 'left';
 
-            // Score
-            ctx.fillText(`SCORE: ${gameState.score}`, 15, 35);
+            // Score — aligned with bottom of life icons
+            ctx.fillText(`SCORE: ${gameState.score}`, 15, 42);
 
             // (combo display removed)
 
@@ -1210,8 +1374,8 @@
             ctx.shadowBlur = 0;
             ctx.shadowColor = 'transparent';
             const livesX = canvas.width - 10;  // Right edge
-            const livesY = -10;  // Original working position
-            const lifeSize = 65;
+            const livesY = 8;  // Lowered for taller moonbird sprites
+            const lifeSize = 55;
             const lifeSpacing = 55;
             const owlLifeImg = assets.images.look1;
 
@@ -1275,25 +1439,37 @@
 
             // Animated owl sprite (look_1 through look_6)
             const lookFrames = [assets.images.look1, assets.images.look2, assets.images.look3, assets.images.look4, assets.images.look5, assets.images.look6];
-            const frameIdx = Math.floor(Date.now() / 150) % 6;
+            const frameIdx = Math.floor(Date.now() / 130) % 6;
             const owlFrame = lookFrames[frameIdx];
             if (owlFrame && owlFrame.complete) {
-                const owlSize = canvas.width * 0.38;
+                const owlSize = canvas.width * 0.45;
                 const owlX = canvas.width / 2 - owlSize / 2;
-                const owlY = canvas.height * 0.48;
+                const owlY = canvas.height * 0.42;
                 ctx.drawImage(owlFrame, owlX, owlY, owlSize, owlSize);
             }
 
             // Tap to start below owl — only show when audio is ready
-            ctx.font = '16px "Press Start 2P"';
+            ctx.font = '18px "Press Start 2P"';
             ctx.textAlign = 'center';
             ctx.shadowBlur = 0;
             ctx.shadowColor = 'transparent';
             ctx.fillStyle = '#0ff';
             const pulseA = 0.5 + 0.5 * Math.sin(Date.now() / 300);
             ctx.globalAlpha = pulseA;
-            ctx.fillText('TAP TO START', canvas.width / 2, canvas.height * 0.78);
+            ctx.fillText('TAP TO START', canvas.width / 2, canvas.height * 0.72);
             ctx.globalAlpha = 1;
+
+            // Choose Bird button (centered, below TAP TO START)
+            ctx.font = '14px "Press Start 2P"';
+            ctx.fillStyle = '#ffd700';
+            ctx.shadowColor = '#ffd700';
+            ctx.shadowBlur = 6;
+            ctx.fillText('CHOOSE BIRD', canvas.width / 2, canvas.height * 0.85);
+            ctx.font = '10px "Press Start 2P"';
+            ctx.fillStyle = '#888';
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
+            ctx.fillText(`[${getMoonbirdDisplayName()}]`, canvas.width / 2, canvas.height * 0.875);
 
             // How to play button (left side of bottom)
             ctx.fillStyle = '#00ff88';
@@ -1306,6 +1482,654 @@
             ctx.shadowColor = '#ff00ff';
             ctx.fillText('HIGH SCORES', canvas.width * 0.75, canvas.height * 0.95);
         }
+
+        // Helper: start game, loading moonbird sprites first if needed
+        function startGameWithBird() {
+            loadMoonbirdGameSprites(moonbirdState.selectedId).then(() => {
+                resetGame();
+                currentState = GAME_STATE.PLAYING;
+                stopMusic();
+                startMusic();
+            });
+        }
+
+        // Naming overlay state
+        let namingOverlay = null; // {slotIdx, text, reservedMsg}
+
+        function drawChooseBird() {
+            ctx.fillStyle = '#0a0015';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const cx = canvas.width / 2;
+            const ch = canvas.height;
+            const cw = canvas.width;
+            // Responsive unit — everything scales from this
+            const u = Math.min(ch / 100, cw / 50);
+            const font = (sz) => `${Math.round(sz * u)}px "Press Start 2P"`;
+            const gap = Math.round(u * 1.2);
+
+            ctx.textAlign = 'center';
+            // Calculate total content height to vertically center
+            const previewSizeEst = Math.min(cw * 0.28, ch * 0.18);
+            const padBtnHEst = Math.round(u * 5.5);
+            const padGapEst = Math.round(u * 1);
+            const gapEst = Math.round(u * 1.2);
+            const actBtnHEst = Math.round(u * 5.5);
+            const slotHEst = Math.round(u * 7);
+            const saveBtnHEst = Math.round(u * 4.5);
+            const inputBoxHEst = u * 6;
+            const totalH = u * 3 + u * 2 + previewSizeEst + u * 4 + u * 2 + u * 2 + inputBoxHEst + gapEst
+                + 4 * (padBtnHEst + padGapEst) + gapEst + actBtnHEst + gapEst * 1.5
+                + slotHEst + gapEst + saveBtnHEst + gapEst + actBtnHEst;
+            let yPos = Math.max(u * 2, (ch - totalH) / 2); // vertically center
+
+            // Title
+            ctx.fillStyle = '#ffd700';
+            ctx.font = font(3);
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = '#ffd700';
+            ctx.fillText('CHOOSE YOUR BIRD', cx, yPos);
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
+            yPos += u * 2;
+
+            // Preview area
+            const previewSize = Math.min(cw * 0.28, ch * 0.18);
+            const previewX = cx - previewSize / 2;
+            const previewY = yPos;
+
+            ctx.strokeStyle = '#0ff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(previewX - 3, previewY - 3, previewSize + 6, previewSize + 6);
+
+            if (moonbirdState.previewLoading) {
+                ctx.fillStyle = '#0ff';
+                let loadFont = Math.round(1.5 * u);
+                ctx.font = `${loadFont}px "Press Start 2P"`;
+                while (ctx.measureText('LOADING...').width > previewSize * 0.9 && loadFont > 6) {
+                    loadFont--;
+                    ctx.font = `${loadFont}px "Press Start 2P"`;
+                }
+                ctx.fillText('LOADING...', cx, previewY + previewSize / 2);
+            } else if (moonbirdState.previewSprites) {
+                const frameIdx = Math.floor(Date.now() / 130) % 6;
+                const sprite = moonbirdState.previewSprites[`idle_${frameIdx + 1}`];
+                if (sprite) ctx.drawImage(sprite, previewX, previewY, previewSize, previewSize);
+            } else {
+                const lookFrames = [assets.images.look1, assets.images.look2, assets.images.look3, assets.images.look4, assets.images.look5, assets.images.look6];
+                const frameIdx = Math.floor(Date.now() / 130) % 6;
+                const f = lookFrames[frameIdx];
+                if (f && f.complete) ctx.drawImage(f, previewX, previewY, previewSize, previewSize);
+            }
+            yPos += previewSize + u * 4;
+
+            // Selection label
+            ctx.fillStyle = '#fff';
+            const dispName = getMoonbirdDisplayName();
+            let nameFont = Math.round(2 * u);
+            ctx.font = `${nameFont}px "Press Start 2P"`;
+            while (ctx.measureText(dispName).width > cw * 0.8 && nameFont > 6) {
+                nameFont--;
+                ctx.font = `${nameFont}px "Press Start 2P"`;
+            }
+            ctx.fillText(dispName, cx, yPos);
+            yPos += u * 2;
+
+            // Input box
+            const inputBoxW = cw * 0.45;
+            const inputBoxH = u * 6;
+            const inputBoxX = cx - inputBoxW / 2;
+            const inputBoxY = yPos;
+            ctx.fillStyle = '#000';
+            ctx.fillRect(inputBoxX, inputBoxY, inputBoxW, inputBoxH);
+            ctx.strokeStyle = '#0ff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(inputBoxX, inputBoxY, inputBoxW, inputBoxH);
+
+            ctx.fillStyle = '#0ff';
+            ctx.font = font(3);
+            const displayDigits = moonbirdState.inputDigits || '____';
+            ctx.fillText(displayDigits, cx, inputBoxY + inputBoxH * 0.7);
+            yPos += inputBoxH + gap;
+
+            // Numpad
+            const padBtnW = Math.round(cw * 0.13);
+            const padBtnH = Math.round(u * 5.5);
+            const padGap = Math.round(u * 1);
+            const padTotalW = padBtnW * 3 + padGap * 2;
+            const padStartX = cx - padTotalW / 2;
+            const padTop = yPos;
+
+            const padButtons = [['1','2','3'],['4','5','6'],['7','8','9'],['DEL','0','GO']];
+
+            padButtons.forEach((row, ri) => {
+                row.forEach((label, ci) => {
+                    const bx = padStartX + ci * (padBtnW + padGap);
+                    const by = padTop + ri * (padBtnH + padGap);
+                    if (label === 'DEL') ctx.fillStyle = '#f44';
+                    else if (label === 'GO') ctx.fillStyle = '#0f0';
+                    else ctx.fillStyle = '#333';
+                    ctx.fillRect(bx, by, padBtnW, padBtnH);
+                    ctx.strokeStyle = '#0ff';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(bx, by, padBtnW, padBtnH);
+                    ctx.fillStyle = '#fff';
+                    const btnFont = Math.round(label.length > 1 ? padBtnH * 0.32 : padBtnH * 0.45);
+                    ctx.font = `${btnFont}px "Press Start 2P"`;
+                    ctx.fillText(label, bx + padBtnW/2, by + padBtnH * 0.65);
+                });
+            });
+            yPos = padTop + 4 * (padBtnH + padGap) + gap;
+
+            // Action row: RANDOM / MISCREANT
+            const actY = yPos;
+            const actBtnW = (padTotalW - padGap) / 2;
+            const actBtnH = Math.round(u * 5.5);
+
+            const actFont = `${Math.round(actBtnH * 0.32)}px "Press Start 2P"`;
+
+            ctx.fillStyle = '#0ff';
+            ctx.fillRect(padStartX, actY, actBtnW, actBtnH);
+            ctx.fillStyle = '#000';
+            ctx.font = actFont;
+            ctx.fillText('RANDOM', padStartX + actBtnW/2, actY + actBtnH * 0.65);
+
+            ctx.fillStyle = '#f0f';
+            ctx.fillRect(padStartX + actBtnW + padGap, actY, actBtnW, actBtnH);
+            ctx.fillStyle = '#000';
+            let mFont = Math.round(actBtnH * 0.45);
+            ctx.font = `${mFont}px "Press Start 2P"`;
+            while (ctx.measureText('MISCREANT').width > actBtnW * 0.9 && mFont > 4) {
+                mFont--;
+                ctx.font = `${mFont}px "Press Start 2P"`;
+            }
+            ctx.textBaseline = 'middle';
+            ctx.fillText('MISCREANT', padStartX + actBtnW + padGap + actBtnW/2, actY + actBtnH/2);
+            ctx.textBaseline = 'alphabetic';
+            yPos += actBtnH + gap * 1.5;
+
+            // === SAVE SLOTS ===
+            const slotY = yPos;
+            const slotW = (padTotalW - padGap * 2) / 3;
+            const slotH = Math.round(u * 7);
+
+            for (let i = 0; i < 3; i++) {
+                const sx = padStartX + i * (slotW + padGap);
+                const slot = moonbirdState.slots[i];
+                const isActive = slot && slot.id === moonbirdState.selectedId;
+
+                ctx.fillStyle = isActive ? '#1a3a1a' : '#1a1a2e';
+                ctx.fillRect(sx, slotY, slotW, slotH);
+                ctx.strokeStyle = isActive ? '#0f0' : '#555';
+                ctx.lineWidth = isActive ? 2 : 1;
+                ctx.strokeRect(sx, slotY, slotW, slotH);
+
+                const fitText = (text, maxW, startSize) => {
+                    let fs = startSize;
+                    ctx.font = `${fs}px "Press Start 2P"`;
+                    while (ctx.measureText(text).width > maxW * 0.9 && fs > 4) {
+                        fs--;
+                        ctx.font = `${fs}px "Press Start 2P"`;
+                    }
+                };
+                if (slot) {
+                    const fullName = slot.name || `#${slot.id}`;
+                    ctx.fillStyle = '#fff';
+                    fitText(fullName, slotW, Math.round(slotH * 0.17));
+                    ctx.fillText(fullName, sx + slotW/2, slotY + slotH * 0.35);
+                    ctx.fillStyle = '#0ff';
+                    fitText(`#${slot.id}`, slotW, Math.round(slotH * 0.13));
+                    ctx.fillText(`#${slot.id}`, sx + slotW/2, slotY + slotH * 0.6);
+                    ctx.fillStyle = '#555';
+                    fitText('TAP=LOAD', slotW, Math.round(slotH * 0.1));
+                    ctx.fillText('TAP=LOAD', sx + slotW/2, slotY + slotH * 0.85);
+                } else {
+                    ctx.fillStyle = '#888';
+                    fitText(`SLOT ${i+1}`, slotW, Math.round(slotH * 0.17));
+                    ctx.fillText(`SLOT ${i+1}`, sx + slotW/2, slotY + slotH * 0.4);
+                    ctx.fillStyle = '#555';
+                    fitText('EMPTY', slotW, Math.round(slotH * 0.13));
+                    ctx.fillText('EMPTY', sx + slotW/2, slotY + slotH * 0.7);
+                }
+            }
+            yPos += slotH + gap;
+
+            // SAVE TO SLOT button
+            const saveY = yPos;
+            const saveBtnW = padTotalW;
+            const saveBtnH = Math.round(u * 4.5);
+            ctx.fillStyle = '#2a5a2a';
+            ctx.fillRect(padStartX, saveY, saveBtnW, saveBtnH);
+            ctx.strokeStyle = '#0f0';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(padStartX, saveY, saveBtnW, saveBtnH);
+            ctx.fillStyle = '#0f0';
+            let saveFont = Math.round(saveBtnH * 0.35);
+            ctx.font = `${saveFont}px "Press Start 2P"`;
+            while (ctx.measureText('SAVE TO SLOT...').width > saveBtnW * 0.9 && saveFont > 4) {
+                saveFont--;
+                ctx.font = `${saveFont}px "Press Start 2P"`;
+            }
+            ctx.fillText('SAVE TO SLOT...', padStartX + saveBtnW/2, saveY + saveBtnH * 0.65);
+            yPos += saveBtnH + gap;
+
+            // Bottom row: BACK and PLAY
+            const bottomY = yPos;
+
+            ctx.fillStyle = '#555';
+            ctx.fillRect(padStartX, bottomY, actBtnW, actBtnH);
+            ctx.fillStyle = '#fff';
+            ctx.font = actFont;
+            ctx.fillText('< BACK', padStartX + actBtnW/2, bottomY + actBtnH * 0.65);
+
+            ctx.fillStyle = '#ffd700';
+            ctx.fillRect(padStartX + actBtnW + padGap, bottomY, actBtnW, actBtnH);
+            ctx.fillStyle = '#000';
+            ctx.font = `${Math.round(actBtnH * 0.38)}px "Press Start 2P"`;
+            ctx.fillText('PLAY!', padStartX + actBtnW + padGap + actBtnW/2, bottomY + actBtnH * 0.65);
+
+            // Store layout for click handler
+            moonbirdState._layout = { padStartX, padTop, padBtnW, padBtnH, padGap, padTotalW, actY, actBtnW, actBtnH, slotY, slotW, slotH, saveY, saveBtnW, saveBtnH, bottomY };
+
+            // === NAMING OVERLAY ===
+            if (namingOverlay && namingOverlay.mode === 'pickSlot') {
+                // Slot picker — all slots full, choose which to overwrite
+                ctx.fillStyle = 'rgba(0,0,0,0.85)';
+                ctx.fillRect(0, 0, cw, ch);
+
+                const ow = cw * 0.85;
+                const ox = cx - ow/2;
+                const oy = ch * 0.3;
+
+                ctx.fillStyle = '#1a1a2e';
+                ctx.fillRect(ox, oy, ow, ch * 0.3);
+                ctx.strokeStyle = '#0ff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(ox, oy, ow, ch * 0.3);
+
+                ctx.fillStyle = '#ffd700';
+                ctx.font = font(2);
+                ctx.fillText('REPLACE WHICH SLOT?', cx, oy + u * 5);
+
+                const psW = (ow - padGap * 4) / 3;
+                const psH = u * 10;
+                const psY = oy + u * 8;
+                const psX = ox + padGap;
+
+                for (let i = 0; i < 3; i++) {
+                    const sx = psX + i * (psW + padGap);
+                    const slot = moonbirdState.slots[i];
+                    ctx.fillStyle = '#333';
+                    ctx.fillRect(sx, psY, psW, psH);
+                    ctx.strokeStyle = '#f80';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(sx, psY, psW, psH);
+                    if (slot) {
+                        ctx.fillStyle = '#fff';
+                        ctx.font = font(1.3);
+                        ctx.fillText(slot.name || `#${slot.id}`, sx + psW/2, psY + psH * 0.4);
+                        ctx.fillStyle = '#0ff';
+                        ctx.font = font(1);
+                        ctx.fillText(`#${slot.id}`, sx + psW/2, psY + psH * 0.65);
+                    }
+                }
+
+                // Cancel button
+                const pcY = psY + psH + u * 3;
+                const pcW = ow * 0.4;
+                const pcH = u * 5;
+                ctx.fillStyle = '#f44';
+                ctx.fillRect(cx - pcW/2, pcY, pcW, pcH);
+                ctx.fillStyle = '#fff';
+                ctx.font = font(1.8);
+                ctx.fillText('CANCEL', cx, pcY + pcH * 0.65);
+
+                namingOverlay._pickLayout = { psX, psY, psW, psH, pcY, pcW, pcH };
+
+            } else if (namingOverlay && namingOverlay.mode === 'name') {
+                // Name entry overlay
+                ctx.fillStyle = 'rgba(0,0,0,0.85)';
+                ctx.fillRect(0, 0, cw, ch);
+
+                const ow = cw * 0.9;
+                const oh = ch * 0.55;
+                const ox = cx - ow/2;
+                const oy = ch * 0.22;
+
+                ctx.fillStyle = '#1a1a2e';
+                ctx.fillRect(ox, oy, ow, oh);
+                ctx.strokeStyle = '#0ff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(ox, oy, ow, oh);
+
+                ctx.fillStyle = '#ffd700';
+                ctx.font = font(2.2);
+                ctx.fillText('NAME YOUR BIRD', cx, oy + u * 6);
+                ctx.fillStyle = '#888';
+                ctx.font = font(1.5);
+                ctx.fillText(`SLOT ${namingOverlay.slotIdx + 1} — #${moonbirdState.selectedId}`, cx, oy + u * 10);
+
+                const niY = oy + u * 13;
+                const niW = ow * 0.8;
+                const niX = cx - niW/2;
+                const niH = u * 6;
+                ctx.fillStyle = '#000';
+                ctx.fillRect(niX, niY, niW, niH);
+                ctx.strokeStyle = '#0ff';
+                ctx.strokeRect(niX, niY, niW, niH);
+                ctx.fillStyle = '#0ff';
+                ctx.font = font(2.2);
+                ctx.fillText(namingOverlay.text || '', cx, niY + niH * 0.7);
+
+                if (namingOverlay.reservedMsg) {
+                    ctx.fillStyle = '#f44';
+                    ctx.font = font(1.3);
+                    ctx.fillText(namingOverlay.reservedMsg, cx, niY + niH + u * 3);
+                }
+
+                const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ_ <';
+                const cols = 7;
+                const lbW = Math.floor((ow * 0.88) / cols);
+                const lbH = Math.round(u * 4.5);
+                const lbGap = Math.round(u * 0.5);
+                const lgX = cx - (cols * (lbW + lbGap) - lbGap) / 2;
+                const lgY = niY + niH + u * 5;
+
+                for (let i = 0; i < letters.length; i++) {
+                    const col = i % cols;
+                    const row = Math.floor(i / cols);
+                    const lx = lgX + col * (lbW + lbGap);
+                    const ly = lgY + row * (lbH + lbGap);
+                    const ch2 = letters[i];
+                    ctx.fillStyle = ch2 === '<' ? '#f44' : ch2 === '_' ? '#555' : '#333';
+                    ctx.fillRect(lx, ly, lbW, lbH);
+                    ctx.strokeStyle = '#0ff';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(lx, ly, lbW, lbH);
+                    ctx.fillStyle = '#fff';
+                    ctx.font = font(1.8);
+                    const display = ch2 === '_' ? 'SPC' : ch2 === '<' ? 'DEL' : ch2;
+                    ctx.fillText(display, lx + lbW/2, ly + lbH * 0.65);
+                }
+
+                const obY = lgY + Math.ceil(letters.length / cols) * (lbH + lbGap) + u * 2;
+                const obW = ow * 0.35;
+                const obH = Math.round(u * 5.5);
+
+                ctx.fillStyle = '#0f0';
+                ctx.fillRect(cx - obW - 5, obY, obW, obH);
+                ctx.fillStyle = '#000';
+                ctx.font = font(2);
+                ctx.fillText('SAVE', cx - obW/2 - 5, obY + obH * 0.65);
+
+                ctx.fillStyle = '#f44';
+                ctx.fillRect(cx + 5, obY, obW, obH);
+                ctx.fillStyle = '#fff';
+                ctx.fillText('CANCEL', cx + obW/2 + 5, obY + obH * 0.65);
+
+                namingOverlay._layout = { ox, oy, ow, oh, niX, niY, niW, lgX, lgY, lbW, lbH, lbGap, cols, letters, obY, obW, obH };
+            }
+        }
+
+        function handleChooseBirdClick(x, y) {
+            // Handle naming overlay first
+            if (namingOverlay) {
+                handleNamingClick(x, y);
+                return;
+            }
+
+            const L = moonbirdState._layout;
+            if (!L) return;
+            const { padStartX, padTop, padBtnW, padBtnH, padGap, padTotalW, actY, actBtnW, actBtnH, slotY, slotW, slotH, saveY, saveBtnW, saveBtnH, bottomY } = L;
+
+            // Numpad
+            const padButtons = [['1','2','3'],['4','5','6'],['7','8','9'],['DEL','0','GO']];
+            for (let ri = 0; ri < padButtons.length; ri++) {
+                for (let ci = 0; ci < padButtons[ri].length; ci++) {
+                    const bx = padStartX + ci * (padBtnW + padGap);
+                    const by = padTop + ri * (padBtnH + padGap);
+                    if (x > bx && x < bx + padBtnW && y > by && y < by + padBtnH) {
+                        const label = padButtons[ri][ci];
+                        if (label === 'DEL') {
+                            moonbirdState.inputDigits = moonbirdState.inputDigits.slice(0, -1);
+                            moonbirdState.inputFresh = false;
+                        } else if (label === 'GO') {
+                            const num = parseInt(moonbirdState.inputDigits);
+                            if (!isNaN(num) && num >= 0 && num <= 9999) {
+                                moonbirdState.selectedId = num;
+                                moonbirdState.inputFresh = true;
+                                saveMoonbirdSelection();
+                                loadMoonbirdPreview(num);
+                            }
+                        } else {
+                            if (moonbirdState.inputFresh) {
+                                moonbirdState.inputDigits = label;
+                                moonbirdState.inputFresh = false;
+                            } else if (moonbirdState.inputDigits.length < 4) {
+                                moonbirdState.inputDigits += label;
+                            }
+                        }
+                        return;
+                    }
+                }
+            }
+
+            // RANDOM button
+            if (x > padStartX && x < padStartX + actBtnW && y > actY && y < actY + actBtnH) {
+                const randomId = Math.floor(Math.random() * 10000);
+                moonbirdState.inputDigits = randomId.toString();
+                moonbirdState.inputFresh = true;
+                moonbirdState.selectedId = randomId;
+                saveMoonbirdSelection();
+                loadMoonbirdPreview(randomId);
+                return;
+            }
+
+            // MISCREANT button
+            if (x > padStartX + actBtnW + padGap && x < padStartX + padTotalW && y > actY && y < actY + actBtnH) {
+                moonbirdState.selectedId = MISCREANT_BIRD_ID;
+                moonbirdState.inputDigits = MISCREANT_BIRD_ID.toString();
+                moonbirdState.inputFresh = true;
+                saveMoonbirdSelection();
+                loadMoonbirdPreview(MISCREANT_BIRD_ID);
+                return;
+            }
+
+            // Save slots — tap to load
+            for (let i = 0; i < 3; i++) {
+                const sx = padStartX + i * (slotW + padGap);
+                if (x > sx && x < sx + slotW && y > slotY && y < slotY + slotH) {
+                    const slot = moonbirdState.slots[i];
+                    if (slot) {
+                        moonbirdState.selectedId = slot.id;
+                        moonbirdState.inputDigits = slot.id.toString();
+                        moonbirdState.inputFresh = true;
+                        saveMoonbirdSelection();
+                        loadMoonbirdPreview(slot.id);
+                    }
+                    return;
+                }
+            }
+
+            // SAVE TO SLOT button
+            if (x > padStartX && x < padStartX + saveBtnW && y > saveY && y < saveY + saveBtnH) {
+                const birdId = moonbirdState.selectedId;
+                const reservedName = RESERVED_NAMES[birdId];
+                
+                // Check if this bird is already saved in a slot
+                const existingSlot = moonbirdState.slots.findIndex(s => s && s.id === birdId);
+                if (existingSlot !== -1) return; // already saved, don't duplicate
+
+                // Find first empty slot
+                let slotIdx = moonbirdState.slots.findIndex(s => s === null);
+                
+                if (slotIdx === -1) {
+                    // All slots full — enter slot-pick mode
+                    namingOverlay = { mode: 'pickSlot', text: reservedName || '', reservedMsg: null };
+                    return;
+                }
+
+                // Reserved/easter egg birds auto-save with their locked name
+                if (reservedName) {
+                    moonbirdState.slots[slotIdx] = { id: birdId, name: reservedName };
+                    saveMoonbirdSlots();
+                    return;
+                }
+
+                // Normal bird — open naming overlay
+                namingOverlay = { mode: 'name', slotIdx, text: '', reservedMsg: null };
+                return;
+            }
+
+            // BACK button — reload game sprites so title screen shows selected bird
+            if (x > padStartX && x < padStartX + actBtnW && y > bottomY && y < bottomY + actBtnH) {
+                loadMoonbirdGameSprites(moonbirdState.selectedId).then(() => {
+                    currentState = GAME_STATE.TITLE;
+                });
+                return;
+            }
+
+            // PLAY button
+            if (x > padStartX + actBtnW + padGap && x < padStartX + padTotalW && y > bottomY && y < bottomY + actBtnH) {
+                startGameWithBird();
+                return;
+            }
+        }
+
+        function handleNamingClick(x, y) {
+            const cx = canvas.width / 2;
+
+            // === PICK SLOT MODE ===
+            if (namingOverlay.mode === 'pickSlot') {
+                const P = namingOverlay._pickLayout;
+                if (!P) return;
+                const { psX, psY, psW, psH, pcY, pcW, pcH } = P;
+
+                // Check slot clicks
+                for (let i = 0; i < 3; i++) {
+                    const sx = psX + i * (psW + moonbirdState._layout.padGap);
+                    if (x > sx && x < sx + psW && y > psY && y < psY + psH) {
+                        const birdId = moonbirdState.selectedId;
+                        const reservedName = RESERVED_NAMES[birdId];
+                        if (reservedName) {
+                            // Reserved bird — auto-save
+                            moonbirdState.slots[i] = { id: birdId, name: reservedName };
+                            saveMoonbirdSlots();
+                            namingOverlay = null;
+                        } else {
+                            // Normal bird — switch to naming mode for this slot
+                            namingOverlay = { mode: 'name', slotIdx: i, text: '', reservedMsg: null };
+                        }
+                        return;
+                    }
+                }
+
+                // Cancel
+                if (x > cx - pcW/2 && x < cx + pcW/2 && y > pcY && y < pcY + pcH) {
+                    namingOverlay = null;
+                    return;
+                }
+                return;
+            }
+
+            // === NAME MODE ===
+            const L = namingOverlay._layout;
+            if (!L) return;
+            const { lgX, lgY, lbW, lbH, lbGap, cols, letters, obY, obW, obH } = L;
+
+            // Letter grid
+            for (let i = 0; i < letters.length; i++) {
+                const col = i % cols;
+                const row = Math.floor(i / cols);
+                const lx = lgX + col * (lbW + lbGap);
+                const ly = lgY + row * (lbH + lbGap);
+                if (x > lx && x < lx + lbW && y > ly && y < ly + lbH) {
+                    const ch = letters[i];
+                    if (ch === '<') {
+                        namingOverlay.text = namingOverlay.text.slice(0, -1);
+                    } else if (ch === '_') {
+                        if (namingOverlay.text.length < 12) namingOverlay.text += ' ';
+                    } else {
+                        if (namingOverlay.text.length < 12) namingOverlay.text += ch;
+                    }
+                    namingOverlay.reservedMsg = null;
+                    return;
+                }
+            }
+
+            // SAVE button
+            if (x > cx - obW - 5 && x < cx - 5 && y > obY && y < obY + obH) {
+                const name = namingOverlay.text.trim().toUpperCase();
+                if (!name) {
+                    namingOverlay.reservedMsg = 'ENTER A NAME';
+                    return;
+                }
+                if (isReservedName(name)) {
+                    namingOverlay.reservedMsg = 'NAME RESERVED!';
+                    return;
+                }
+                moonbirdState.slots[namingOverlay.slotIdx] = { id: moonbirdState.selectedId, name };
+                saveMoonbirdSlots();
+                namingOverlay = null;
+                return;
+            }
+
+            // CANCEL button
+            if (x > cx + 5 && x < cx + obW + 5 && y > obY && y < obY + obH) {
+                namingOverlay = null;
+                return;
+            }
+        }
+
+        // Handle keyboard input for the chooser screen
+        document.addEventListener('keydown', (e) => {
+            if (currentState !== GAME_STATE.CHOOSE_BIRD) return;
+
+            // Naming overlay keyboard
+            if (namingOverlay) {
+                if (e.key === 'Escape') { namingOverlay = null; return; }
+                if (e.key === 'Backspace') { namingOverlay.text = namingOverlay.text.slice(0, -1); return; }
+                if (e.key === 'Enter') {
+                    const name = namingOverlay.text.trim().toUpperCase();
+                    if (name && !isReservedName(name)) {
+                        moonbirdState.slots[namingOverlay.slotIdx] = { id: moonbirdState.selectedId, name };
+                        saveMoonbirdSlots();
+                        namingOverlay = null;
+                    }
+                    return;
+                }
+                if (/^[a-zA-Z ]$/.test(e.key) && namingOverlay.text.length < 12) {
+                    namingOverlay.text += e.key.toUpperCase();
+                    namingOverlay.reservedMsg = null;
+                }
+                return;
+            }
+            
+            // Number input
+            if (e.key >= '0' && e.key <= '9') {
+                if (moonbirdState.inputFresh) {
+                    moonbirdState.inputDigits = e.key;
+                    moonbirdState.inputFresh = false;
+                } else if (moonbirdState.inputDigits.length < 4) {
+                    moonbirdState.inputDigits += e.key;
+                }
+            } else if (e.key === 'Backspace') {
+                moonbirdState.inputDigits = moonbirdState.inputDigits.slice(0, -1);
+                moonbirdState.inputFresh = false;
+            } else if (e.key === 'Enter') {
+                const num = parseInt(moonbirdState.inputDigits);
+                if (!isNaN(num) && num >= 0 && num <= 9999) {
+                    moonbirdState.selectedId = num;
+                    moonbirdState.inputFresh = true;
+                    saveMoonbirdSelection();
+                    loadMoonbirdPreview(num);
+                }
+            } else if (e.key === 'Escape') {
+                loadMoonbirdGameSprites(moonbirdState.selectedId).then(() => {
+                    currentState = GAME_STATE.TITLE;
+                });
+            }
+        });
 
         function drawHowToPlay() {
             ctx.fillStyle = '#0a0015';
@@ -1571,6 +2395,10 @@
                     drawTitleScreen();
                     break;
 
+                case GAME_STATE.CHOOSE_BIRD:
+                    drawChooseBird();
+                    break;
+
                 case GAME_STATE.HOW_TO_PLAY:
                     drawHowToPlay();
                     break;
@@ -1586,7 +2414,7 @@
                     } else if (!gameState.grounded) {
                         animRate = deltaTime * 0.008;  // Jumping: ~8fps
                     } else {
-                        animRate = deltaTime * 0.003;  // Idle bounce: slow gentle
+                        animRate = deltaTime * 0.0092;  // Idle bounce
                     }
                     gameState.playerAnimFrame += animRate;
 
@@ -1679,25 +2507,38 @@
 
             switch (currentState) {
                 case GAME_STATE.TITLE:
-                    if (y > canvas.height * 0.9 && x < canvas.width * 0.5) {
+                    // Choose Bird button zone (centered, ~85% height)
+                    if (y > canvas.height * 0.81 && y < canvas.height * 0.91) {
+                        currentState = GAME_STATE.CHOOSE_BIRD;
+                        moonbirdState.inputDigits = moonbirdState.selectedId.toString(); moonbirdState.inputFresh = true; namingOverlay = null;
+                        loadMoonbirdPreview(moonbirdState.selectedId);
+                    } else if (y > canvas.height * 0.9 && x < canvas.width * 0.5) {
                         currentState = GAME_STATE.HOW_TO_PLAY;
                     } else if (y > canvas.height * 0.9 && x >= canvas.width * 0.5) {
                         currentState = GAME_STATE.HIGH_SCORES;
                     } else if (!localStorage.getItem('etherDashTutorialSeen')) {
                         currentState = GAME_STATE.HOW_TO_PLAY;
                     } else {
-                        resetGame();
-                        currentState = GAME_STATE.PLAYING; stopMusic(); startMusic();
+                        startGameWithBird();
                     }
+                    break;
+
+                case GAME_STATE.CHOOSE_BIRD:
+                    handleChooseBirdClick(x, y);
                     break;
 
                 case GAME_STATE.HOW_TO_PLAY:
                     localStorage.setItem('etherDashTutorialSeen', '1');
-                    resetGame();
-                    currentState = GAME_STATE.PLAYING; stopMusic(); startMusic();
+                    startGameWithBird();
                     break;
 
                 case GAME_STATE.PLAYING:
+                    // Check quit button first (bottom-left corner)
+                    if (x < 58 && y > canvas.height - 24) {
+                        stopMusic();
+                        currentState = GAME_STATE.TITLE;
+                        break;
+                    }
                     // HOLD = WALK
                     startHolding();
                     touchActive = true;
@@ -1761,25 +2602,38 @@
 
             switch (currentState) {
                 case GAME_STATE.TITLE:
-                    if (y > canvas.height * 0.9 && x < canvas.width * 0.5) {
+                    // Choose Bird button zone (centered, ~85% height)
+                    if (y > canvas.height * 0.81 && y < canvas.height * 0.91) {
+                        currentState = GAME_STATE.CHOOSE_BIRD;
+                        moonbirdState.inputDigits = moonbirdState.selectedId.toString(); moonbirdState.inputFresh = true; namingOverlay = null;
+                        loadMoonbirdPreview(moonbirdState.selectedId);
+                    } else if (y > canvas.height * 0.9 && x < canvas.width * 0.5) {
                         currentState = GAME_STATE.HOW_TO_PLAY;
                     } else if (y > canvas.height * 0.9 && x >= canvas.width * 0.5) {
                         currentState = GAME_STATE.HIGH_SCORES;
                     } else if (!localStorage.getItem('etherDashTutorialSeen')) {
                         currentState = GAME_STATE.HOW_TO_PLAY;
                     } else {
-                        resetGame();
-                        currentState = GAME_STATE.PLAYING; stopMusic(); startMusic();
+                        startGameWithBird();
                     }
+                    break;
+
+                case GAME_STATE.CHOOSE_BIRD:
+                    handleChooseBirdClick(x, y);
                     break;
 
                 case GAME_STATE.HOW_TO_PLAY:
                     localStorage.setItem('etherDashTutorialSeen', '1');
-                    resetGame();
-                    currentState = GAME_STATE.PLAYING; stopMusic(); startMusic();
+                    startGameWithBird();
                     break;
 
                 case GAME_STATE.PLAYING:
+                    // Check quit button (bottom-left corner)
+                    if (x < 58 && y > canvas.height - 24) {
+                        stopMusic();
+                        currentState = GAME_STATE.TITLE;
+                        break;
+                    }
                     startHolding();
                     touchActive = true;
                     break;

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Moonbird Sprites</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #000;
+            color: #0ff;
+            padding: 20px;
+        }
+        img {
+            border: 1px solid #0ff;
+            margin: 5px;
+            width: 100px;
+            height: 100px;
+            image-rendering: pixelated;
+        }
+        .error {
+            color: #f00;
+        }
+        .success {
+            color: #0f0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Moonbird Sprite Test</h1>
+    
+    <h2>Testing Public Access</h2>
+    <div id="status">Checking...</div>
+    
+    <h3>Test URLs:</h3>
+    <ul>
+        <li>R2 Dev: <span id="r2dev"></span></li>
+        <li>Custom: <span id="custom"></span></li>
+    </ul>
+    
+    <h3>Sample Sprites:</h3>
+    <div id="sprites"></div>
+    
+    <script>
+        // Test URLs
+        const urls = {
+            r2dev: [
+                'https://pub-81c5b750034d42b6be2fe3c3dd264a5a.r2.dev/0/idle_1.png',
+                'https://moonbird-sprites.44ffbedf19eeeb22de65864989d8f84e.r2.cloudflarestorage.com/0/idle_1.png'
+            ],
+            custom: 'https://sprites.tomatobird.xyz/0/idle_1.png'
+        };
+        
+        // Test R2 dev URLs
+        async function testUrls() {
+            const status = document.getElementById('status');
+            const r2devSpan = document.getElementById('r2dev');
+            const customSpan = document.getElementById('custom');
+            
+            // Test R2 dev URLs
+            let r2Working = null;
+            for (const url of urls.r2dev) {
+                try {
+                    const response = await fetch(url, { mode: 'no-cors' });
+                    r2Working = url;
+                    break;
+                } catch (e) {
+                    console.log(`Failed: ${url}`);
+                }
+            }
+            
+            if (r2Working) {
+                r2devSpan.innerHTML = `<span class="success">✓ Working: ${r2Working}</span>`;
+                
+                // Load some sample sprites
+                const spritesDiv = document.getElementById('sprites');
+                const baseUrl = r2Working.replace('/0/idle_1.png', '');
+                
+                // Test moonbirds 0, 100, 1000, 5000, 9999
+                const testBirds = [0, 100, 1000, 5000, 9999];
+                
+                for (const bird of testBirds) {
+                    const img = document.createElement('img');
+                    img.src = `${baseUrl}/${bird}/idle_1.png`;
+                    img.title = `Moonbird #${bird}`;
+                    img.onerror = function() {
+                        this.style.border = '1px solid #f00';
+                    };
+                    spritesDiv.appendChild(img);
+                }
+                
+                status.innerHTML = '<span class="success">✓ R2 bucket is accessible!</span>';
+            } else {
+                r2devSpan.innerHTML = '<span class="error">✗ Not configured for public access yet</span>';
+                status.innerHTML = '<span class="error">✗ R2 bucket needs public access enabled</span>';
+            }
+            
+            // Test custom domain
+            try {
+                const response = await fetch(urls.custom, { mode: 'no-cors' });
+                customSpan.innerHTML = '<span class="success">✓ Working</span>';
+            } catch (e) {
+                customSpan.innerHTML = '<span class="error">✗ Not configured yet</span>';
+            }
+        }
+        
+        // Run tests
+        testUrls();
+    </script>
+</body>
+</html>
