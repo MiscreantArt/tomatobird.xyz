@@ -1509,19 +1509,39 @@
             const gap = Math.round(u * 1.2);
 
             ctx.textAlign = 'center';
-            // Calculate total content height to vertically center
-            const previewSizeEst = Math.min(cw * 0.28, ch * 0.18);
-            const padBtnHEst = Math.round(u * 5.5);
-            const padGapEst = Math.round(u * 1);
-            const gapEst = Math.round(u * 1.2);
-            const actBtnHEst = Math.round(u * 5.5);
-            const slotHEst = Math.round(u * 7);
-            const saveBtnHEst = Math.round(u * 4.5);
-            const inputBoxHEst = u * 6;
-            const totalH = u * 3 + u * 2 + previewSizeEst + u * 4 + u * 2 + u * 2 + inputBoxHEst + gapEst
-                + 4 * (padBtnHEst + padGapEst) + gapEst + actBtnHEst + gapEst * 1.5
-                + slotHEst + gapEst + saveBtnHEst + gapEst + actBtnHEst;
-            let yPos = Math.max(u * 2, (ch - totalH) / 2); // vertically center
+            // First pass: calculate total height, then offset to vertically center
+            const previewSizeCalc = Math.min(cw * 0.28, ch * 0.18);
+            const padBtnHCalc = Math.round(u * 5.5);
+            const padGapCalc = Math.round(u * 1);
+            const gapCalc = Math.round(u * 1.2);
+            const actBtnHCalc = Math.round(u * 5.5);
+            const slotHCalc = Math.round(u * 7);
+            const saveBtnHCalc = Math.round(u * 4.5);
+            const inputBoxHCalc = u * 6;
+            // Title height + gap + preview + gap + name + gap + input + gap + numpad (4 rows) + gap + action row + gap + slots + gap + save btn + gap + bottom row
+            const totalH = u * 3           // title text
+                + u * 2                     // gap after title
+                + previewSizeCalc           // bird preview
+                + u * 4                     // gap after preview
+                + u * 2                     // name label
+                + u * 2                     // gap after name
+                + inputBoxHCalc             // input box
+                + gapCalc                   // gap
+                + 4 * (padBtnHCalc + padGapCalc) // numpad
+                + gapCalc                   // gap
+                + actBtnHCalc               // random/miscreant row
+                + gapCalc * 1.5             // gap
+                + slotHCalc                 // slots
+                + gapCalc                   // gap
+                + saveBtnHCalc              // save button
+                + gapCalc                   // gap
+                + actBtnHCalc;              // back/play row
+            const yOffset = Math.max(0, (ch - totalH) / 2);
+            ctx.save();
+            ctx.translate(0, yOffset);
+            // Store offset for click handler
+            moonbirdState._yOffset = yOffset;
+            let yPos = 0;
 
             // Title
             ctx.fillStyle = '#ffd700';
@@ -1730,6 +1750,7 @@
 
             // Store layout for click handler
             moonbirdState._layout = { padStartX, padTop, padBtnW, padBtnH, padGap, padTotalW, actY, actBtnW, actBtnH, slotY, slotW, slotH, saveY, saveBtnW, saveBtnH, bottomY };
+            ctx.restore();
 
             // === NAMING OVERLAY ===
             if (namingOverlay && namingOverlay.mode === 'pickSlot') {
@@ -1872,6 +1893,9 @@
         }
 
         function handleChooseBirdClick(x, y) {
+            // Adjust for vertical centering offset
+            y -= (moonbirdState._yOffset || 0);
+
             // Handle naming overlay first
             if (namingOverlay) {
                 handleNamingClick(x, y);
