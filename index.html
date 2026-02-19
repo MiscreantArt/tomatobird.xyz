@@ -108,7 +108,7 @@
         const MAX_RATIO = 9 / 16; // widest allowed (portrait)
         function resizeCanvas() {
             const winW = window.innerWidth;
-            const winH = window.innerHeight * 0.95;
+            const winH = window.innerHeight;
 
             let cw, ch;
             const ratio = winW / winH;
@@ -129,7 +129,7 @@
             canvas.style.height = ch + 'px';
             canvas.style.position = 'absolute';
             canvas.style.left = Math.round((winW - cw) / 2) + 'px';
-            canvas.style.top = Math.round((window.innerHeight * 0.95 - ch) / 2) + 'px';
+            canvas.style.top = Math.round((window.innerHeight - ch) / 2) + 'px';
         }
 
         resizeCanvas();
