@@ -771,11 +771,12 @@
 
             update(deltaTime) {
                 // Rain coins fall down AND scroll left with the background
+                const dtScale = deltaTime / 16.67; // normalize to 60fps
                 if (this.falling) {
-                    this.y += this.fallSpeed * (deltaTime / 16);
+                    this.y += this.fallSpeed * dtScale;
                     let speed = gameState.bgSpeed;
                     if (!gameState.grounded) speed *= PHYSICS.JUMP_SPEED_MULTIPLIER;
-                    this.x -= speed;
+                    this.x -= speed * dtScale;
                     this.pulseTime += deltaTime;
                     this.bobOffset = 0;
                     // Magnet pulls rain coins too
@@ -799,7 +800,7 @@
                     speed *= PHYSICS.JUMP_SPEED_MULTIPLIER;
                 }
 
-                this.x -= speed;
+                this.x -= speed * dtScale;
                 this.pulseTime += deltaTime;
 
                 // Powerups float gently, coins and drainers stay still
@@ -1085,12 +1086,13 @@
                 gameState.playerVelocityY = 0;
             }
 
-            // Background scrolling — faster during jump
+            // Background scrolling — faster during jump (normalized to 60fps)
+            const bgDtScale = deltaTime / 16.67;
             let scrollSpeed = gameState.bgSpeed;
             if (!gameState.grounded && scrollSpeed > 0) {
                 scrollSpeed *= PHYSICS.JUMP_SPEED_MULTIPLIER;
             }
-            gameState.bgScroll += scrollSpeed;
+            gameState.bgScroll += scrollSpeed * bgDtScale;
         }
 
         function updateGameSpeed(deltaTime) {
