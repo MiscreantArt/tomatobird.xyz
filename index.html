@@ -1501,11 +1501,13 @@
 
         // Helper: start game, loading moonbird sprites first if needed
         function startGameWithBird() {
+            // Start music immediately in user gesture context (before async sprite load)
+            // Mobile browsers block play() outside of user gesture
+            stopMusic();
+            startMusic();
             loadMoonbirdGameSprites(moonbirdState.selectedId).then(() => {
                 resetGame();
                 currentState = GAME_STATE.PLAYING;
-                stopMusic();
-                startMusic();
             });
         }
 
