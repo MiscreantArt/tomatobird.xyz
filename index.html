@@ -130,8 +130,6 @@
             canvas.style.position = 'absolute';
             canvas.style.left = Math.round((winW - cw) / 2) + 'px';
             canvas.style.top = Math.round((window.innerHeight * 0.95 - ch) / 2) + 'px';
-            // Ensure page is tall enough to scroll below game if there's space
-            document.body.style.minHeight = (ch + parseInt(canvas.style.top) + 50) + 'px';
         }
 
         resizeCanvas();
@@ -477,29 +475,8 @@
             source.start(0);
         }
 
-        let musicSource = null;
         function startMusic() {
             if (!audioEnabled || musicStarted) return;
-            if (!audioCtx) return;
-            // Ensure AudioContext is active
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
-            // Try Web Audio API buffer first (more reliable on mobile)
-            const buf = audioBuffers && audioBuffers.bgMusic;
-            if (buf) {
-                musicSource = audioCtx.createBufferSource();
-                musicSource.buffer = buf;
-                musicSource.loop = true;
-                const gainNode = audioCtx.createGain();
-                gainNode.gain.value = 0.5;
-                musicSource.connect(gainNode);
-                gainNode.connect(audioCtx.destination);
-                musicSource.start(0);
-                musicStarted = true;
-                return;
-            }
-            // Fallback to HTML Audio element
             const music = assets.audio.bgMusic;
             if (music) {
                 music.loop = true;
@@ -710,10 +687,6 @@
         // Music management
         function stopMusic() {
             musicStarted = false;
-            if (musicSource) {
-                try { musicSource.stop(); } catch(e) {}
-                musicSource = null;
-            }
             const music = assets.audio.bgMusic;
             if (music) { music.pause(); music.currentTime = 0; }
             const hsMusic = assets.audio.hiScoreMusic;
