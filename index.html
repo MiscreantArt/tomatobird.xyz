@@ -1032,7 +1032,7 @@
             // If grounded, immediately start walking
             if (gameState.grounded) {
                 gameState.isWalking = true;
-                gameState.bgSpeed = 7 + (gameState.walkSpeedBonus || 0);  // Faster base speed
+                gameState.bgSpeed = 6 + (gameState.walkSpeedBonus || 0);  // Faster base speed
             }
         }
 
@@ -1045,7 +1045,7 @@
                 gameState.playerVelocityY = PHYSICS.JUMP_FORCE;
                 gameState.grounded = false;
                 // Keep moving during jump — maintain walk speed (jump multiplier handled in object update)
-                gameState.bgSpeed = 7 + (gameState.walkSpeedBonus || 0);
+                gameState.bgSpeed = 6 + (gameState.walkSpeedBonus || 0);
 
                 // Play jump sound ONLY when jump actually happens
                 playSound('jump');
@@ -1072,7 +1072,7 @@
                 // If player is still holding when landing, start walking again
                 if (gameState.isHolding) {
                     gameState.isWalking = true;
-                    gameState.bgSpeed = 7 + (gameState.walkSpeedBonus || 0);  // Faster base speed
+                    gameState.bgSpeed = 6 + (gameState.walkSpeedBonus || 0);  // Faster base speed
                 } else {
                     // Idle bounce - no walking
                     gameState.isWalking = false;
@@ -1105,7 +1105,7 @@
             }
             // Apply walk speed bonus when walking
             if (gameState.isWalking) {
-                gameState.bgSpeed = 7 + (gameState.walkSpeedBonus || 0);  // Faster base speed
+                gameState.bgSpeed = 6 + (gameState.walkSpeedBonus || 0);  // Faster base speed
             }
 
             // Drainers enabled from the start
