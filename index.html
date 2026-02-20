@@ -1155,6 +1155,8 @@
                             gameState.score += 1;
                             gameState.coinsCollected++;
 
+                            // Force enable audio after first coin as backup
+                            if (!audioEnabled) enableAudio();
                             playSound('coin');
                             break;
 
