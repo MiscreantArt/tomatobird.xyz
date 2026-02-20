@@ -477,12 +477,23 @@
 
         function startMusic() {
             if (!audioEnabled || musicStarted) return;
+            // Ensure AudioContext is active (required before any audio on mobile)
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
             const music = assets.audio.bgMusic;
             if (music) {
                 music.loop = true;
                 music.volume = 0.5;
-                music.play().catch(e => console.warn('Music play failed:', e));
-                musicStarted = true;
+                const tryPlay = () => {
+                    music.play().then(() => {
+                        musicStarted = true;
+                    }).catch(e => {
+                        console.warn('Music play failed, retrying in 500ms:', e);
+                        setTimeout(tryPlay, 500);
+                    });
+                };
+                tryPlay();
             }
         }
 
@@ -2400,8 +2411,12 @@
         let lastTime = performance.now();
 
         function gameLoop(currentTime) {
-            const deltaTime = currentTime - lastTime;
+            let deltaTime = currentTime - lastTime;
             lastTime = currentTime;
+            // Cap deltaTime to prevent physics explosions after tab switch or throttle
+            // Also prevents "slow motion" from accumulated lag
+            if (deltaTime > 100) deltaTime = 16.67; // Reset to ~60fps if gap > 100ms
+            if (deltaTime <= 0) deltaTime = 16.67;
 
             // Apply screen shake
             if (gameState.screenShake > 0) {
