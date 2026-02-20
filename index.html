@@ -1894,14 +1894,14 @@
         }
 
         function handleChooseBirdClick(x, y) {
-            // Adjust for vertical centering offset
-            y -= (moonbirdState._yOffset || 0);
-
-            // Handle naming overlay first
+            // Handle naming overlay first (draws at absolute coords, no offset)
             if (namingOverlay) {
                 handleNamingClick(x, y);
                 return;
             }
+
+            // Adjust for vertical centering offset (only for chooser buttons)
+            y -= (moonbirdState._yOffset || 0);
 
             const L = moonbirdState._layout;
             if (!L) return;
