@@ -1056,11 +1056,13 @@
         }
 
         function updatePhysics(deltaTime) {
+            const dtScale = deltaTime / 16.67; // normalize to 60fps
+
             // Apply gravity
-            gameState.playerVelocityY += PHYSICS.GRAVITY;
+            gameState.playerVelocityY += PHYSICS.GRAVITY * dtScale;
 
             // Update position
-            gameState.playerY += gameState.playerVelocityY;
+            gameState.playerY += gameState.playerVelocityY * dtScale;
 
             // Ground collision
             const groundY = getGroundY();
