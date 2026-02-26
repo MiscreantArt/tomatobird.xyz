@@ -229,7 +229,9 @@
         }
 
         // Load moonbird sprites into the main game assets (replaces owl sprites)
+        let _gameSpriteLoadId = 0;
         async function loadMoonbirdGameSprites(id) {
+            const loadId = ++_gameSpriteLoadId;
             if (id === null) return; // keep original owl
             const cdnBase = `${MOONBIRD_CDN}/${id}`;
             
@@ -247,15 +249,20 @@
             const results = await Promise.allSettled(mappings.map(m => 
                 new Promise((resolve, reject) => {
                     const img = new Image();
-                    img.onload = () => resolve({ img, keys: m.keys });
+                    img.onload = () => {
+                        if (loadId !== _gameSpriteLoadId) { img.src = ''; resolve(null); return; }
+                        resolve({ img, keys: m.keys });
+                    };
                     img.onerror = () => reject(m.url);
                     img.src = m.url;
                 })
             ));
 
+            if (loadId !== _gameSpriteLoadId) return; // stale load
+            
             let loaded = 0;
             results.forEach(r => {
-                if (r.status === 'fulfilled') {
+                if (r.status === 'fulfilled' && r.value) {
                     r.value.keys.forEach(key => { assets.images[key] = r.value.img; });
                     loaded++;
                 }
@@ -266,23 +273,40 @@
         }
 
         // Load moonbird preview sprites for the chooser screen
+        let _previewLoadId = 0; // cancellation token
         async function loadMoonbirdPreview(id) {
-            if (id === null) { moonbirdState.previewSprites = null; return; }
+            const loadId = ++_previewLoadId; // new load cancels old ones
+            
+            // Clean up old preview sprites
+            if (moonbirdState.previewSprites) {
+                Object.values(moonbirdState.previewSprites).forEach(img => { img.src = ''; });
+                moonbirdState.previewSprites = null;
+            }
+            
+            if (id === null) { moonbirdState.previewLoading = false; return; }
             moonbirdState.previewLoading = true;
             const sprites = {};
             const names = ['idle_1', 'idle_2', 'idle_3', 'idle_4', 'idle_5', 'idle_6'];
             try {
                 await Promise.all(names.map(name => new Promise((resolve, reject) => {
                     const img = new Image();
-                    img.onload = () => { sprites[name] = img; resolve(); };
+                    img.onload = () => {
+                        if (loadId !== _previewLoadId) { img.src = ''; resolve(); return; } // stale
+                        sprites[name] = img;
+                        resolve();
+                    };
                     img.onerror = () => reject();
                     img.src = `${MOONBIRD_CDN}/${id}/${name}.png`;
                 })));
-                moonbirdState.previewSprites = sprites;
+                if (loadId === _previewLoadId) {
+                    moonbirdState.previewSprites = sprites;
+                } else {
+                    Object.values(sprites).forEach(img => { img.src = ''; });
+                }
             } catch(e) {
-                moonbirdState.previewSprites = null;
+                if (loadId === _previewLoadId) moonbirdState.previewSprites = null;
             }
-            moonbirdState.previewLoading = false;
+            if (loadId === _previewLoadId) moonbirdState.previewLoading = false;
         }
 
         let currentState = GAME_STATE.LOADING;
@@ -1507,7 +1531,9 @@
             // Mobile browsers block play() outside of user gesture
             stopMusic();
             startMusic();
-            loadMoonbirdGameSprites(moonbirdState.selectedId).then(() => {
+            // Race: load sprites but start game within 3s max (fallback to whatever loaded)
+            const timeout = new Promise(r => setTimeout(r, 3000));
+            Promise.race([loadMoonbirdGameSprites(moonbirdState.selectedId), timeout]).then(() => {
                 resetGame();
                 currentState = GAME_STATE.PLAYING;
             });
