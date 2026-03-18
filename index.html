@@ -113,8 +113,10 @@
         const ctx = canvas.getContext('2d');
         const loadingFill = document.getElementById('loadingFill');
 
-        // Canvas setup — use full screen in portrait, cap at 9:16 in landscape
+        // Canvas setup — fixed internal game view so desktop doesn't show more world than phones
         const MAX_RATIO = 9 / 16; // widest allowed (portrait)
+        const GAME_WIDTH = 432;
+        const GAME_HEIGHT = 768;
         const gameContainer = document.getElementById('gameContainer');
 
         function clamp(value, min, max) {
@@ -140,26 +142,27 @@
             const winW = Math.max(1, Math.round(containerRect.width || viewport.width));
             const winH = Math.max(1, Math.round(containerRect.height || viewport.height));
 
-            let cw, ch;
-            const ratio = winW / winH;
+            const scale = Math.min(winW / GAME_WIDTH, winH / GAME_HEIGHT);
+            const displayW = Math.max(1, Math.round(GAME_WIDTH * scale));
+            const displayH = Math.max(1, Math.round(GAME_HEIGHT * scale));
 
-            if (ratio > MAX_RATIO) {
-                // Landscape or too wide — letterbox to 9:16
-                ch = winH;
-                cw = Math.round(ch * MAX_RATIO);
-            } else {
-                // Portrait phone — use full width, no bars
-                cw = winW;
-                ch = winH;
-            }
-
-            canvas.width = cw;
-            canvas.height = ch;
-            canvas.style.width = cw + 'px';
-            canvas.style.height = ch + 'px';
+            canvas.width = GAME_WIDTH;
+            canvas.height = GAME_HEIGHT;
+            canvas.style.width = displayW + 'px';
+            canvas.style.height = displayH + 'px';
             canvas.style.position = 'absolute';
-            canvas.style.left = Math.round((winW - cw) / 2) + 'px';
-            canvas.style.top = Math.round((winH - ch) / 2) + 'px';
+            canvas.style.left = Math.round((winW - displayW) / 2) + 'px';
+            canvas.style.top = Math.round((winH - displayH) / 2) + 'px';
+        }
+
+        function getCanvasPoint(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
         }
 
         resizeCanvas();
@@ -2685,10 +2688,8 @@
             e.preventDefault();
             enableAudio();
 
-            const rect = canvas.getBoundingClientRect();
             const touch = e.touches[0];
-            const x = touch.clientX - rect.left;
-            const y = touch.clientY - rect.top;
+            const { x, y } = getCanvasPoint(touch.clientX, touch.clientY);
 
             switch (currentState) {
                 case GAME_STATE.TITLE:
@@ -2788,9 +2789,7 @@
         canvas.addEventListener('mousedown', (e) => {
             enableAudio();
 
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
+            const { x, y } = getCanvasPoint(e.clientX, e.clientY);
 
             switch (currentState) {
                 case GAME_STATE.TITLE:
