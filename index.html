@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-fullscreen">
     <title>Ether Dash</title>
@@ -17,12 +17,20 @@
             -webkit-tap-highlight-color: transparent;
         }
 
+        :root {
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-right: env(safe-area-inset-right, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-left: env(safe-area-inset-left, 0px);
+        }
+
         body {
             font-family: 'Press Start 2P', cursive;
             background: #000;
             overflow: hidden;
             touch-action: none;
             position: fixed;
+            inset: 0;
             width: 100%;
             height: 100%;
         }
@@ -34,6 +42,7 @@
             justify-content: center;
             align-items: center; /* Center canvas vertically on all phones */
             background: #000;
+            padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
         }
 
         canvas {
@@ -106,9 +115,30 @@
 
         // Canvas setup — use full screen in portrait, cap at 9:16 in landscape
         const MAX_RATIO = 9 / 16; // widest allowed (portrait)
+        const gameContainer = document.getElementById('gameContainer');
+
+        function clamp(value, min, max) {
+            return Math.max(min, Math.min(max, value));
+        }
+
+        function getViewportSize() {
+            if (window.visualViewport) {
+                return {
+                    width: Math.round(window.visualViewport.width),
+                    height: Math.round(window.visualViewport.height)
+                };
+            }
+            return {
+                width: window.innerWidth,
+                height: window.innerHeight
+            };
+        }
+
         function resizeCanvas() {
-            const winW = window.innerWidth;
-            const winH = window.innerHeight * 0.95;
+            const viewport = getViewportSize();
+            const containerRect = gameContainer.getBoundingClientRect();
+            const winW = Math.max(1, Math.round(containerRect.width || viewport.width));
+            const winH = Math.max(1, Math.round(containerRect.height || viewport.height));
 
             let cw, ch;
             const ratio = winW / winH;
@@ -129,11 +159,16 @@
             canvas.style.height = ch + 'px';
             canvas.style.position = 'absolute';
             canvas.style.left = Math.round((winW - cw) / 2) + 'px';
-            canvas.style.top = Math.round((window.innerHeight * 0.95 - ch) / 2) + 'px';
+            canvas.style.top = Math.round((winH - ch) / 2) + 'px';
         }
 
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('orientationchange', resizeCanvas);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', resizeCanvas);
+            window.visualViewport.addEventListener('scroll', resizeCanvas);
+        }
 
         // ==========================================
         // GAME STATE
@@ -149,6 +184,78 @@
             HIGH_SCORES: 'highScores',
             ENTER_INITIALS: 'enterInitials'
         };
+
+        function getTitleLayout() {
+            const w = canvas.width;
+            const h = canvas.height;
+            const unit = Math.min(w, h);
+            const navY = h - clamp(h * 0.055, 26, 44);
+            const chooseY = clamp(h * 0.84, h * 0.8, h - 90);
+            const chooseNameY = chooseY + clamp(unit * 0.045, 14, 24);
+            return {
+                startY: clamp(h * 0.72, h * 0.68, h * 0.76),
+                chooseY,
+                chooseNameY,
+                chooseBounds: {
+                    top: chooseY - clamp(unit * 0.085, 26, 42),
+                    bottom: chooseNameY + clamp(unit * 0.04, 12, 20)
+                },
+                navY,
+                navBounds: {
+                    top: navY - clamp(unit * 0.05, 18, 28),
+                    bottom: navY + clamp(unit * 0.03, 10, 16)
+                }
+            };
+        }
+
+        function getHighScoresLayout() {
+            const w = canvas.width;
+            const h = canvas.height;
+            const unit = Math.min(w, h);
+            const titleY = clamp(h * 0.09, 44, 66);
+            const lineY = titleY + clamp(unit * 0.03, 10, 16);
+            const bottomY = h - clamp(h * 0.055, 26, 40);
+            const topY = lineY + clamp(unit * 0.1, 28, 44);
+            const rowGap = Math.floor((bottomY - topY) / 10);
+            const sidePad = clamp(w * 0.09, 18, 36);
+            return {
+                titleY,
+                lineY,
+                rowStartY: topY,
+                rowGap: clamp(rowGap, 22, 38),
+                rowFont: clamp(rowGap * 0.48, 10, 16),
+                sidePad,
+                initialsX: sidePad + clamp(unit * 0.16, 40, 56),
+                scoreX: w - sidePad,
+                footerY: bottomY
+            };
+        }
+
+        function getInitialsLayout() {
+            const w = canvas.width;
+            const h = canvas.height;
+            const unit = Math.min(w, h);
+            const titleY = clamp(h * 0.13, 68, 96);
+            const scoreY = titleY + clamp(unit * 0.12, 34, 50);
+            const helpY = scoreY + clamp(unit * 0.11, 34, 48);
+            const letterY = clamp(h * 0.46, 210, h * 0.5);
+            const boxSize = clamp(unit * 0.14, 44, 64);
+            const letterSpacing = clamp(unit * 0.22, 56, 84);
+            const submitWidth = clamp(w * 0.48, 180, 230);
+            const submitHeight = clamp(h * 0.075, 42, 56);
+            const submitY = letterY + boxSize + clamp(unit * 0.18, 44, 76);
+            return {
+                titleY,
+                scoreY,
+                helpY,
+                letterY,
+                boxSize,
+                letterSpacing,
+                submitY,
+                submitWidth,
+                submitHeight
+            };
+        }
 
         // ==========================================
         // MOONBIRD CHOOSER STATE
@@ -1471,6 +1578,7 @@
         }
 
         function drawTitleScreen() {
+            const layout = getTitleLayout();
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -1498,7 +1606,7 @@
             ctx.fillStyle = '#0ff';
             const pulseA = 0.5 + 0.5 * Math.sin(Date.now() / 300);
             ctx.globalAlpha = pulseA;
-            ctx.fillText('TAP TO START', canvas.width / 2, canvas.height * 0.72);
+            ctx.fillText('TAP TO START', canvas.width / 2, layout.startY);
             ctx.globalAlpha = 1;
 
             // Choose Bird button (centered, below TAP TO START)
@@ -1506,23 +1614,23 @@
             ctx.fillStyle = '#ffd700';
             ctx.shadowColor = '#ffd700';
             ctx.shadowBlur = 6;
-            ctx.fillText('CHOOSE BIRD', canvas.width / 2, canvas.height * 0.85);
+            ctx.fillText('CHOOSE BIRD', canvas.width / 2, layout.chooseY);
             ctx.font = '10px "Press Start 2P"';
             ctx.fillStyle = '#888';
             ctx.shadowBlur = 0;
             ctx.shadowColor = 'transparent';
-            ctx.fillText(`[${getMoonbirdDisplayName()}]`, canvas.width / 2, canvas.height * 0.875);
+            ctx.fillText(`[${getMoonbirdDisplayName()}]`, canvas.width / 2, layout.chooseNameY);
 
             // How to play button (left side of bottom)
             ctx.fillStyle = '#00ff88';
             ctx.shadowColor = '#00ff88';
             ctx.font = '12px "Press Start 2P"';
-            ctx.fillText('HOW TO PLAY', canvas.width * 0.25, canvas.height * 0.95);
+            ctx.fillText('HOW TO PLAY', canvas.width * 0.25, layout.navY);
 
             // High scores button (right side of bottom)
             ctx.fillStyle = '#ff00ff';
             ctx.shadowColor = '#ff00ff';
-            ctx.fillText('HIGH SCORES', canvas.width * 0.75, canvas.height * 0.95);
+            ctx.fillText('HIGH SCORES', canvas.width * 0.75, layout.navY);
         }
 
         // Helper: start game, loading moonbird sprites first if needed
@@ -2317,34 +2425,35 @@
         }
 
         function drawHighScores() {
+            const layout = getHighScoresLayout();
             // Dark cyberpunk background
             ctx.fillStyle = '#0a0015';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // Title with underline
             ctx.fillStyle = '#0ff';
-            ctx.font = '20px "Press Start 2P"';
+            ctx.font = `${Math.round(clamp(Math.min(canvas.width, canvas.height) * 0.05, 16, 20))}px "Press Start 2P"`;
             ctx.textAlign = 'center';
             ctx.shadowBlur = 10;
             ctx.shadowColor = '#0ff';
-            ctx.fillText('GLOBAL HIGH SCORES', canvas.width / 2, 50);
+            ctx.fillText('GLOBAL HIGH SCORES', canvas.width / 2, layout.titleY);
 
             // Underline
             ctx.strokeStyle = '#0ff';
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.moveTo(canvas.width * 0.2, 60);
-            ctx.lineTo(canvas.width * 0.8, 60);
+            ctx.moveTo(canvas.width * 0.16, layout.lineY);
+            ctx.lineTo(canvas.width * 0.84, layout.lineY);
             ctx.stroke();
 
             // High score entries - each in DIFFERENT COLOR
-            ctx.font = '14px "Press Start 2P"';
+            ctx.font = `${Math.round(layout.rowFont)}px "Press Start 2P"`;
             gameState.highScores.forEach((entry, i) => {
-                const y = 100 + i * 35;
+                const y = layout.rowStartY + i * layout.rowGap;
                 // Highlight new high score
                 if (i === gameState.newHighScoreIndex) {
                     ctx.fillStyle = 'rgba(255, 255, 0, 0.3)';
-                    ctx.fillRect(0, y - 20, canvas.width, 30);
+                    ctx.fillRect(0, y - layout.rowGap * 0.6, canvas.width, layout.rowGap * 0.85);
                 }
 
                 // All entries bright yellow
@@ -2354,54 +2463,56 @@
 
                 // Rank number
                 ctx.textAlign = 'left';
-                ctx.fillText(`${i + 1}.`, 30, y);
+                ctx.fillText(`${i + 1}.`, layout.sidePad, y);
 
                 // Initials
-                ctx.fillText(entry.initials, 80, y);
+                ctx.fillText(entry.initials, layout.initialsX, y);
 
                 // Score
                 ctx.textAlign = 'right';
-                ctx.fillText(entry.score.toString(), canvas.width - 30, y);
+                ctx.fillText(entry.score.toString(), layout.scoreX, y);
             });
 
             // Back button
             ctx.fillStyle = '#ff0000';
-            ctx.font = '12px "Press Start 2P"';
+            ctx.font = `${Math.round(clamp(layout.rowFont * 0.92, 10, 14))}px "Press Start 2P"`;
             ctx.textAlign = 'center';
             ctx.shadowColor = '#ff0000';
-            ctx.fillText('TAP TO RETURN', canvas.width / 2, canvas.height - 30);
+            ctx.fillText('TAP TO RETURN', canvas.width / 2, layout.footerY);
         }
 
         function drawEnterInitials() {
+            const layout = getInitialsLayout();
             // Dark background
             ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // Title
             ctx.fillStyle = '#ffd700';
-            ctx.font = '18px "Press Start 2P"';
+            ctx.font = `${Math.round(clamp(Math.min(canvas.width, canvas.height) * 0.05, 16, 18))}px "Press Start 2P"`;
             ctx.textAlign = 'center';
             ctx.shadowBlur = 15;
             ctx.shadowColor = '#ffd700';
-            ctx.fillText('NEW HIGH SCORE!', canvas.width / 2, 80);
+            ctx.fillText('NEW HIGH SCORE!', canvas.width / 2, layout.titleY);
 
             // Score
             ctx.fillStyle = '#0ff';
-            ctx.font = '16px "Press Start 2P"';
+            ctx.font = `${Math.round(clamp(layout.boxSize * 0.34, 14, 16))}px "Press Start 2P"`;
             ctx.shadowColor = '#0ff';
-            ctx.fillText(`SCORE: ${gameState.score}`, canvas.width / 2, 120);
+            ctx.fillText(`SCORE: ${gameState.score}`, canvas.width / 2, layout.scoreY);
 
             // Instructions
             ctx.fillStyle = '#fff';
-            ctx.font = '10px "Press Start 2P"';
+            ctx.font = `${Math.round(clamp(layout.boxSize * 0.2, 9, 11))}px "Press Start 2P"`;
             ctx.shadowBlur = 5;
             ctx.shadowColor = '#fff';
-            ctx.fillText('TAP LETTERS TO CYCLE A-Z', canvas.width / 2, 160);
+            ctx.fillText('TAP LETTERS TO CYCLE A-Z', canvas.width / 2, layout.helpY);
 
             // Draw three large letters (tap each to cycle)
-            const letterSpacing = 80;
+            const letterSpacing = layout.letterSpacing;
             const startX = canvas.width / 2 - letterSpacing;
-            const letterY = 240;
+            const letterY = layout.letterY;
+            const boxSize = layout.boxSize;
 
             initialsInput.blinkTimer += 16;
             const blink = Math.floor(initialsInput.blinkTimer / 500) % 2 === 0;
@@ -2414,28 +2525,28 @@
                 ctx.lineWidth = 3;
                 ctx.shadowBlur = 15;
                 ctx.shadowColor = '#ffff00';
-                ctx.strokeRect(x - 30, letterY - 45, 60, 60);
+                ctx.strokeRect(x - boxSize / 2, letterY - boxSize * 0.75, boxSize, boxSize);
 
                 // Letter — bright yellow with glow
                 ctx.fillStyle = '#ffff00';
                 ctx.shadowBlur = 10;
                 ctx.shadowColor = '#ffff00';
-                ctx.font = '36px "Press Start 2P"';
+                ctx.font = `${Math.round(clamp(boxSize * 0.72, 28, 36))}px "Press Start 2P"`;
                 ctx.textAlign = 'center';
                 ctx.fillText(initialsInput.letters[i], x, letterY);
             }
 
             // SUBMIT button (green)
-            const submitY = 340;
+            const submitY = layout.submitY;
             ctx.fillStyle = '#00ff00';
             ctx.shadowBlur = 10;
             ctx.shadowColor = '#00ff00';
-            ctx.fillRect(canvas.width / 2 - 100, submitY, 200, 50);
+            ctx.fillRect(canvas.width / 2 - layout.submitWidth / 2, submitY, layout.submitWidth, layout.submitHeight);
 
             ctx.fillStyle = '#000';
-            ctx.font = '14px "Press Start 2P"';
+            ctx.font = `${Math.round(clamp(layout.submitHeight * 0.28, 12, 14))}px "Press Start 2P"`;
             ctx.shadowBlur = 0;
-            ctx.fillText('SUBMIT', canvas.width / 2, submitY + 32);
+            ctx.fillText('SUBMIT', canvas.width / 2, submitY + layout.submitHeight * 0.64);
         }
 
         // ==========================================
@@ -2581,14 +2692,15 @@
 
             switch (currentState) {
                 case GAME_STATE.TITLE:
+                    const titleLayout = getTitleLayout();
                     // Choose Bird button zone (centered, ~85% height)
-                    if (y > canvas.height * 0.81 && y < canvas.height * 0.91) {
+                    if (y > titleLayout.chooseBounds.top && y < titleLayout.chooseBounds.bottom) {
                         currentState = GAME_STATE.CHOOSE_BIRD;
                         moonbirdState.inputDigits = moonbirdState.selectedId.toString(); moonbirdState.inputFresh = true; namingOverlay = null;
                         loadMoonbirdPreview(moonbirdState.selectedId);
-                    } else if (y > canvas.height * 0.9 && x < canvas.width * 0.5) {
+                    } else if (y > titleLayout.navBounds.top && y < titleLayout.navBounds.bottom && x < canvas.width * 0.5) {
                         currentState = GAME_STATE.HOW_TO_PLAY;
-                    } else if (y > canvas.height * 0.9 && x >= canvas.width * 0.5) {
+                    } else if (y > titleLayout.navBounds.top && y < titleLayout.navBounds.bottom && x >= canvas.width * 0.5) {
                         currentState = GAME_STATE.HIGH_SCORES;
                     } else if (!localStorage.getItem('etherDashTutorialSeen')) {
                         currentState = GAME_STATE.HOW_TO_PLAY;
@@ -2632,22 +2744,28 @@
                     break;
 
                 case GAME_STATE.ENTER_INITIALS:
+                    const initialsLayout = getInitialsLayout();
                     // Check which letter was tapped
-                    const letterSpacing = 80;
+                    const letterSpacing = initialsLayout.letterSpacing;
                     const startX = canvas.width / 2 - letterSpacing;
-                    const letterY = 240;
+                    const letterY = initialsLayout.letterY;
+                    const boxHalfW = initialsLayout.boxSize / 2;
+                    const boxTop = letterY - initialsLayout.boxSize * 0.75;
+                    const boxBottom = boxTop + initialsLayout.boxSize;
 
                     for (let i = 0; i < 3; i++) {
                         const lx = startX + i * letterSpacing;
-                        if (x > lx - 30 && x < lx + 30 && y > letterY - 45 && y < letterY + 15) {
+                        if (x > lx - boxHalfW && x < lx + boxHalfW && y > boxTop && y < boxBottom) {
                             cycleInitialLetter(i);
                             break;
                         }
                     }
 
                     // Check submit button
-                    const submitY = 340;
-                    if (y > submitY && y < submitY + 50 && x > canvas.width / 2 - 100 && x < canvas.width / 2 + 100) {
+                    const submitY = initialsLayout.submitY;
+                    if (y > submitY && y < submitY + initialsLayout.submitHeight &&
+                        x > canvas.width / 2 - initialsLayout.submitWidth / 2 &&
+                        x < canvas.width / 2 + initialsLayout.submitWidth / 2) {
                         const initials = initialsInput.letters.join('');
                         addHighScore(initials, gameState.score);
                         currentState = GAME_STATE.HIGH_SCORES;
@@ -2676,14 +2794,15 @@
 
             switch (currentState) {
                 case GAME_STATE.TITLE:
+                    const titleLayout = getTitleLayout();
                     // Choose Bird button zone (centered, ~85% height)
-                    if (y > canvas.height * 0.81 && y < canvas.height * 0.91) {
+                    if (y > titleLayout.chooseBounds.top && y < titleLayout.chooseBounds.bottom) {
                         currentState = GAME_STATE.CHOOSE_BIRD;
                         moonbirdState.inputDigits = moonbirdState.selectedId.toString(); moonbirdState.inputFresh = true; namingOverlay = null;
                         loadMoonbirdPreview(moonbirdState.selectedId);
-                    } else if (y > canvas.height * 0.9 && x < canvas.width * 0.5) {
+                    } else if (y > titleLayout.navBounds.top && y < titleLayout.navBounds.bottom && x < canvas.width * 0.5) {
                         currentState = GAME_STATE.HOW_TO_PLAY;
-                    } else if (y > canvas.height * 0.9 && x >= canvas.width * 0.5) {
+                    } else if (y > titleLayout.navBounds.top && y < titleLayout.navBounds.bottom && x >= canvas.width * 0.5) {
                         currentState = GAME_STATE.HIGH_SCORES;
                     } else if (!localStorage.getItem('etherDashTutorialSeen')) {
                         currentState = GAME_STATE.HOW_TO_PLAY;
@@ -2726,20 +2845,26 @@
                     break;
 
                 case GAME_STATE.ENTER_INITIALS:
-                    const letterSpacing = 80;
+                    const initialsLayout = getInitialsLayout();
+                    const letterSpacing = initialsLayout.letterSpacing;
                     const startX = canvas.width / 2 - letterSpacing;
-                    const letterY = 240;
+                    const letterY = initialsLayout.letterY;
+                    const boxHalfW = initialsLayout.boxSize / 2;
+                    const boxTop = letterY - initialsLayout.boxSize * 0.75;
+                    const boxBottom = boxTop + initialsLayout.boxSize;
 
                     for (let i = 0; i < 3; i++) {
                         const lx = startX + i * letterSpacing;
-                        if (x > lx - 30 && x < lx + 30 && y > letterY - 45 && y < letterY + 15) {
+                        if (x > lx - boxHalfW && x < lx + boxHalfW && y > boxTop && y < boxBottom) {
                             cycleInitialLetter(i);
                             break;
                         }
                     }
 
-                    const submitY = 340;
-                    if (y > submitY && y < submitY + 50 && x > canvas.width / 2 - 100 && x < canvas.width / 2 + 100) {
+                    const submitY = initialsLayout.submitY;
+                    if (y > submitY && y < submitY + initialsLayout.submitHeight &&
+                        x > canvas.width / 2 - initialsLayout.submitWidth / 2 &&
+                        x < canvas.width / 2 + initialsLayout.submitWidth / 2) {
                         const initials = initialsInput.letters.join('');
                         addHighScore(initials, gameState.score);
                         currentState = GAME_STATE.HIGH_SCORES;
