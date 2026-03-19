@@ -692,7 +692,7 @@
             isWalking: false,  // Track walking state
             playerAnimFrame: 0,
             playerAnimTimer: 0,
-            walkAnimSpeed: 0.07,  // timePerFrame for walk
+            walkAnimSpeed: 0.014,  // Run cycle rate multiplier
             jumpAnimSpeed: 0.1,   // timePerFrame for jump
             objects: [],
             particles: [],
@@ -2598,7 +2598,7 @@
                     // Animation speed based on state
                     let animRate;
                     if (gameState.isWalking) {
-                        animRate = deltaTime * 0.01;  // Walk: ~10fps
+                        animRate = deltaTime * gameState.walkAnimSpeed;  // Run: snappier cycle
                     } else if (!gameState.grounded) {
                         animRate = deltaTime * 0.008;  // Jumping: ~8fps
                     } else {
