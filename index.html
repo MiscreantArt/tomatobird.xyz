@@ -505,17 +505,27 @@
         // Load audio
         Object.keys(audioToLoad).forEach(key => {
             const audio = new Audio();
-            audio.oncanplaythrough = () => {
+            let settled = false;
+            const settleAudioLoad = (failed = false) => {
+                if (settled) return;
+                settled = true;
+                audio.oncanplaythrough = null;
+                audio.oncanplay = null;
+                audio.onloadeddata = null;
+                audio.onerror = null;
+                if (failed) {
+                    console.warn(`Failed to load audio: ${audioToLoad[key]}`);
+                }
                 assets.loaded++;
                 updateLoadingBar();
             };
-            audio.onerror = () => {
-                console.warn(`Failed to load audio: ${audioToLoad[key]}`);
-                assets.loaded++;
-                updateLoadingBar();
-            };
+            audio.oncanplaythrough = () => settleAudioLoad(false);
+            audio.oncanplay = () => settleAudioLoad(false);
+            audio.onloadeddata = () => settleAudioLoad(false);
+            audio.onerror = () => settleAudioLoad(true);
             audio.src = audioToLoad[key];
             audio.load();
+            setTimeout(() => settleAudioLoad(false), 4000);
             assets.audio[key] = audio;
         });
 
