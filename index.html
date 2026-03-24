@@ -535,6 +535,7 @@
         let audioCtx = null;
         const audioBuffers = {};
         const audioRawData = {};
+        let musicRetryTimeout = null;
 
         // Pre-fetch audio files immediately (no user gesture needed for fetch)
         const soundFiles = {
@@ -553,12 +554,53 @@
         }
         const allFetched = Promise.all(fetchPromises);
 
+        function clearMusicRetry() {
+            if (musicRetryTimeout) {
+                clearTimeout(musicRetryTimeout);
+                musicRetryTimeout = null;
+            }
+        }
+
+        async function resumeAudioContext() {
+            if (!audioCtx) return false;
+            if (audioCtx.state === 'running') return true;
+            try {
+                await audioCtx.resume();
+            } catch (e) {}
+            return audioCtx.state === 'running';
+        }
+
+        function getForegroundMusicTrack() {
+            if (currentState === GAME_STATE.PLAYING && musicStarted) {
+                return assets.audio.bgMusic;
+            }
+            if (currentState === GAME_STATE.GAME_OVER || currentState === GAME_STATE.HIGH_SCORES || currentState === GAME_STATE.ENTER_INITIALS) {
+                return assets.audio.hiScoreMusic;
+            }
+            return null;
+        }
+
+        function resumeForegroundMusic() {
+            const track = getForegroundMusicTrack();
+            if (track && track.paused) {
+                track.play().catch(() => {});
+            }
+        }
+
+        function watchAudioState() {
+            if (!audioCtx) return;
+            audioCtx.onstatechange = () => {
+                if (audioCtx.state === 'running') {
+                    resumeForegroundMusic();
+                }
+            };
+        }
+
         async function initAudio() {
             if (audioCtx) return;
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioCtx.state === 'suspended') {
-                await audioCtx.resume();
-            }
+            watchAudioState();
+            await resumeAudioContext();
             // Wait for ALL sounds to be fetched, then decode all at once
             await allFetched;
             await decodeAllPending();
@@ -582,8 +624,8 @@
         function playSound(name) {
             if (!audioEnabled || !audioCtx) return;
             // Force resume if still suspended
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
+            if (audioCtx.state !== 'running') {
+                resumeAudioContext();
             }
             // Synthesized shield block sound
             if (name === 'shieldBlock') {
@@ -621,20 +663,30 @@
 
         function startMusic() {
             if (!audioEnabled || musicStarted) return;
+            clearMusicRetry();
             // Ensure AudioContext is active (required before any audio on mobile)
-            if (audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
             const music = assets.audio.bgMusic;
             if (music) {
                 music.loop = true;
                 music.volume = 0.5;
                 const tryPlay = () => {
+                    if (!audioEnabled || musicStarted || currentState !== GAME_STATE.PLAYING) return;
+                    if (audioCtx && audioCtx.state !== 'running') {
+                        resumeAudioContext().finally(() => {
+                            if (!musicStarted && currentState === GAME_STATE.PLAYING) {
+                                clearMusicRetry();
+                                musicRetryTimeout = setTimeout(tryPlay, 500);
+                            }
+                        });
+                        return;
+                    }
                     music.play().then(() => {
+                        clearMusicRetry();
                         musicStarted = true;
                     }).catch(e => {
                         console.warn('Music play failed, retrying in 500ms:', e);
-                        setTimeout(tryPlay, 500);
+                        clearMusicRetry();
+                        musicRetryTimeout = setTimeout(tryPlay, 500);
                     });
                 };
                 tryPlay();
@@ -647,12 +699,13 @@
                 // Create AudioContext synchronously in user gesture (Chrome requirement)
                 if (!audioCtx) {
                     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    watchAudioState();
                 }
                 // No unlock needed — spawn delay gives Chrome time to warm up
             }
             // Chrome suspends AudioContext until user gesture — MUST resume first
-            if (audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume().then(() => {
+            if (audioCtx && audioCtx.state !== 'running') {
+                resumeAudioContext().then(() => {
                     decodeAllPending();
                     allFetched.then(() => decodeAllPending());
                 });
@@ -841,6 +894,7 @@
 
         // Music management
         function stopMusic() {
+            clearMusicRetry();
             musicStarted = false;
             const music = assets.audio.bgMusic;
             if (music) { music.pause(); music.currentTime = 0; }
@@ -855,16 +909,14 @@
                 if (music && !music.paused) music.pause();
                 const hsMusic = assets.audio.hiScoreMusic;
                 if (hsMusic && !hsMusic.paused) hsMusic.pause();
-                if (audioCtx && audioCtx.state === 'running') audioCtx.suspend();
             } else {
                 // Resume when coming back
-                if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-                if (currentState === GAME_STATE.PLAYING && musicStarted) {
-                    const music = assets.audio.bgMusic;
-                    if (music && music.paused) music.play().catch(() => {});
-                } else if (currentState === GAME_STATE.GAME_OVER || currentState === GAME_STATE.HIGH_SCORES || currentState === GAME_STATE.ENTER_INITIALS) {
-                    const hsMusic = assets.audio.hiScoreMusic;
-                    if (hsMusic && hsMusic.paused) hsMusic.play().catch(() => {});
+                if (audioCtx && audioCtx.state !== 'running') {
+                    resumeAudioContext().then(() => {
+                        resumeForegroundMusic();
+                    });
+                } else {
+                    resumeForegroundMusic();
                 }
             }
         });
