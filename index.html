@@ -470,7 +470,8 @@
             textSound: 'audio/Text.mp3'
         };
 
-        assets.total = Object.keys(imagesToLoad).length + Object.keys(audioToLoad).length;
+        // Keep startup snappy: visuals gate the loading screen, audio continues loading in background.
+        assets.total = Object.keys(imagesToLoad).length;
 
         function updateLoadingBar() {
             const percent = (assets.loaded / assets.total) * 100;
@@ -505,27 +506,12 @@
         // Load audio
         Object.keys(audioToLoad).forEach(key => {
             const audio = new Audio();
-            let settled = false;
-            const settleAudioLoad = (failed = false) => {
-                if (settled) return;
-                settled = true;
-                audio.oncanplaythrough = null;
-                audio.oncanplay = null;
-                audio.onloadeddata = null;
-                audio.onerror = null;
-                if (failed) {
-                    console.warn(`Failed to load audio: ${audioToLoad[key]}`);
-                }
-                assets.loaded++;
-                updateLoadingBar();
+            audio.preload = 'auto';
+            audio.onerror = () => {
+                console.warn(`Failed to load audio: ${audioToLoad[key]}`);
             };
-            audio.oncanplaythrough = () => settleAudioLoad(false);
-            audio.oncanplay = () => settleAudioLoad(false);
-            audio.onloadeddata = () => settleAudioLoad(false);
-            audio.onerror = () => settleAudioLoad(true);
             audio.src = audioToLoad[key];
             audio.load();
-            setTimeout(() => settleAudioLoad(false), 4000);
             assets.audio[key] = audio;
         });
 
@@ -559,6 +545,28 @@
                 clearTimeout(musicRetryTimeout);
                 musicRetryTimeout = null;
             }
+        }
+
+        function whenAudioElementReady(audio, callback) {
+            if (!audio) return;
+            if (audio.readyState >= 2) {
+                callback();
+                return;
+            }
+            let done = false;
+            const settle = () => {
+                if (done) return;
+                done = true;
+                audio.removeEventListener('canplaythrough', settle);
+                audio.removeEventListener('canplay', settle);
+                audio.removeEventListener('loadeddata', settle);
+                callback();
+            };
+            audio.addEventListener('canplaythrough', settle, { once: true });
+            audio.addEventListener('canplay', settle, { once: true });
+            audio.addEventListener('loadeddata', settle, { once: true });
+            setTimeout(settle, 1200);
+            audio.load();
         }
 
         async function resumeAudioContext() {
@@ -664,29 +672,31 @@
         function startMusic() {
             if (!audioEnabled || musicStarted) return;
             clearMusicRetry();
-            // Ensure AudioContext is active (required before any audio on mobile)
             const music = assets.audio.bgMusic;
             if (music) {
                 music.loop = true;
                 music.volume = 0.5;
                 const tryPlay = () => {
-                    if (!audioEnabled || musicStarted || currentState !== GAME_STATE.PLAYING) return;
+                    if (!audioEnabled || musicStarted) return;
                     if (audioCtx && audioCtx.state !== 'running') {
                         resumeAudioContext().finally(() => {
-                            if (!musicStarted && currentState === GAME_STATE.PLAYING) {
+                            if (!musicStarted) {
                                 clearMusicRetry();
                                 musicRetryTimeout = setTimeout(tryPlay, 500);
                             }
                         });
                         return;
                     }
-                    music.play().then(() => {
-                        clearMusicRetry();
-                        musicStarted = true;
-                    }).catch(e => {
-                        console.warn('Music play failed, retrying in 500ms:', e);
-                        clearMusicRetry();
-                        musicRetryTimeout = setTimeout(tryPlay, 500);
+                    whenAudioElementReady(music, () => {
+                        if (!audioEnabled || musicStarted) return;
+                        music.play().then(() => {
+                            clearMusicRetry();
+                            musicStarted = true;
+                        }).catch(e => {
+                            console.warn('Music play failed, retrying in 500ms:', e);
+                            clearMusicRetry();
+                            musicRetryTimeout = setTimeout(tryPlay, 500);
+                        });
                     });
                 };
                 tryPlay();
@@ -961,7 +971,9 @@
             if (music) {
                 music.loop = true;
                 music.volume = 0.5;
-                music.play().catch(() => {});
+                whenAudioElementReady(music, () => {
+                    music.play().catch(() => {});
+                });
             }
         }
 
