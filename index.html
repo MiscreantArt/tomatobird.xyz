@@ -801,6 +801,19 @@
         ];
 
         const LEADERBOARD_URL = 'https://tomatobird.xyz/api/scores';
+        const LEADERBOARD_SESSION_URL = 'https://tomatobird.xyz/api/session';
+
+        function createLeaderboardSession() {
+            gameState.leaderboardSessionId = null;
+            fetch(LEADERBOARD_SESSION_URL)
+                .then(r => r.json())
+                .then(data => {
+                    if (data && typeof data.sessionId === 'string') {
+                        gameState.leaderboardSessionId = data.sessionId;
+                    }
+                })
+                .catch(() => {});
+        }
 
         function loadHighScores() {
             // Load local scores first (instant)
@@ -850,16 +863,23 @@
             saveHighScores();
 
             // Submit to global leaderboard (atomic — server handles merge)
+            if (!gameState.leaderboardSessionId) return;
+
             fetch(LEADERBOARD_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ initials, score })
+                body: JSON.stringify({
+                    initials,
+                    score,
+                    sessionId: gameState.leaderboardSessionId
+                })
             })
             .then(r => r.json())
             .then(data => {
                 if (data.scores) {
                     gameState.highScores = data.scores;
                     saveHighScores();
+                    gameState.leaderboardSessionId = null;
                 }
             })
             .catch(() => {});
@@ -1144,6 +1164,8 @@
             gameState.closeCallLife = 0;
             gameState.milestoneFlash = 0;
             gameState.lastMilestone = 0;
+            gameState.leaderboardSessionId = null;
+            createLeaderboardSession();
         }
 
         function spawnObject() {
