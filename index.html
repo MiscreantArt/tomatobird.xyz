@@ -765,6 +765,7 @@
             gameTime: 0,
             drainersEnabled: false,
             highScores: [],
+            honorableMention: null,
             lastDrainerX: -1000,
             milestoneReached: 0,
             newHighScoreIndex: -1,  // For highlighting new score
@@ -801,6 +802,7 @@
         ];
 
         const LEADERBOARD_URL = 'https://tomatobird.xyz/api/scores';
+        const HONORABLE_URL = 'https://tomatobird.xyz/api/honorable';
         const LEADERBOARD_SESSION_URL = 'https://tomatobird.xyz/api/session';
 
         function createLeaderboardSession() {
@@ -844,6 +846,17 @@
                     }
                 })
                 .catch(() => {}); // silently fail — local scores still work
+
+            fetch(HONORABLE_URL)
+                .then(r => r.json())
+                .then(honorable => {
+                    if (Array.isArray(honorable) && honorable.length > 0) {
+                        gameState.honorableMention = honorable[0];
+                    } else {
+                        gameState.honorableMention = null;
+                    }
+                })
+                .catch(() => {});
         }
 
         function saveHighScores() {
@@ -2513,6 +2526,7 @@
 
         function drawHighScores() {
             const layout = getHighScoresLayout();
+            const honorable = gameState.honorableMention;
             // Dark cyberpunk background
             ctx.fillStyle = '#0a0015';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -2559,6 +2573,16 @@
                 ctx.textAlign = 'right';
                 ctx.fillText(entry.score.toString(), layout.scoreX, y);
             });
+
+            if (honorable && honorable.initials && typeof honorable.score === 'number') {
+                const mentionY = layout.footerY - layout.rowGap * 1.8;
+                ctx.textAlign = 'center';
+                ctx.shadowBlur = 6;
+                ctx.fillStyle = '#ff88ff';
+                ctx.shadowColor = '#ff88ff';
+                ctx.font = `${Math.round(clamp(layout.rowFont * 0.75, 8, 11))}px "Press Start 2P"`;
+                ctx.fillText(`HONORABLE MENTION: ${honorable.initials} ${honorable.score}`, canvas.width / 2, mentionY);
+            }
 
             // Back button
             ctx.fillStyle = '#ff0000';
